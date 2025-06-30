@@ -26,6 +26,7 @@
 #define MAX_NAME_LEN 256
 #define JSON_FILE "elements.json"
 #define MEMORY_CACHE_TIMEOUT 5
+#define MAX_REGISTERED_EVENTS 10
 
 typedef enum {
    TYPE_STRING = 0,
@@ -85,6 +86,7 @@ static void signal_handler(int sig) {
    g_running = 0;
 }
 
+static rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char *eventName, rbusFilter_t filter, int32_t interval, bool *autoPublish);
 static rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
    rbusValue_t value;
    rbusValue_Init(&value);
@@ -606,36 +608,6 @@ static rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodN
    return RBUS_ERROR_SUCCESS;
 }
 
-static rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
-
-   rbusValue_t msg_type, source, dest, content_type, qos;
-   rbusValue_Init(&msg_type);
-   rbusValue_Init(&source);
-   rbusValue_Init(&dest);
-   rbusValue_Init(&content_type);
-   rbusValue_Init(&qos);
-
-   rbusValue_SetString(msg_type, "event");
-   rbusValue_SetString(source, "telemetry2");
-   rbusValue_SetString(dest, "event:LTE-Notify");
-   rbusValue_SetString(content_type, "application/json");
-   rbusValue_SetString(qos, "22");
-
-   rbusObject_SetValue(outParams, "msg_type", msg_type);
-   rbusObject_SetValue(outParams, "source", source);
-   rbusObject_SetValue(outParams, "dest", dest);
-   rbusObject_SetValue(outParams, "content_type", content_type);
-   rbusObject_SetValue(outParams, "qos", qos);
-
-   rbusValue_Release(msg_type);
-   rbusValue_Release(source);
-   rbusValue_Release(dest);
-   rbusValue_Release(content_type);
-   rbusValue_Release(qos);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
 static rbusError_t get_system_info_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
 
    rbusValue_t serialVal, timeVal, uptimeVal;
@@ -663,6 +635,182 @@ static rbusError_t get_system_info_method(rbusHandle_t handle, const char *metho
    return RBUS_ERROR_SUCCESS;
 }
 
+static rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+   // Validate required parameters
+   rbusValue_t msgTypeVal = rbusObject_GetValue(inParams, "msg_type");
+   rbusValue_t sourceVal = rbusObject_GetValue(inParams, "source");
+   rbusValue_t destVal = rbusObject_GetValue(inParams, "dest");
+
+   // Set default msg_type to 4 if not provided
+   const char *msg_type_str = "4";
+   if (msgTypeVal) {
+      if (rbusValue_GetType(msgTypeVal) == RBUS_INT32) {
+         if (rbusValue_GetInt32(msgTypeVal) != 4) {
+            rbusValue_t errorVal;
+            rbusValue_Init(&errorVal);
+            rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
+            rbusObject_SetValue(outParams, "error", errorVal);
+            rbusValue_Release(errorVal);
+            return RBUS_ERROR_INVALID_INPUT;
+         }
+      } else if (rbusValue_GetType(msgTypeVal) == RBUS_STRING) {
+         if (strcmp(rbusValue_GetString(msgTypeVal, NULL), "event") != 0) {
+            rbusValue_t errorVal;
+            rbusValue_Init(&errorVal);
+            rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
+            rbusObject_SetValue(outParams, "error", errorVal);
+            rbusValue_Release(errorVal);
+            return RBUS_ERROR_INVALID_INPUT;
+         }
+         msg_type_str = "event";
+      } else {
+         rbusValue_t errorVal;
+         rbusValue_Init(&errorVal);
+         rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
+         rbusObject_SetValue(outParams, "error", errorVal);
+         rbusValue_Release(errorVal);
+         return RBUS_ERROR_INVALID_INPUT;
+      }
+   }
+
+   if (!sourceVal || rbusValue_GetType(sourceVal) != RBUS_STRING || !rbusValue_GetString(sourceVal, NULL)) {
+      rbusValue_t errorVal;
+      rbusValue_Init(&errorVal);
+      rbusValue_SetString(errorVal, "source must be a non-empty string");
+      rbusObject_SetValue(outParams, "error", errorVal);
+      rbusValue_Release(errorVal);
+      return RBUS_ERROR_INVALID_INPUT;
+   }
+
+   if (!destVal || rbusValue_GetType(destVal) != RBUS_STRING || !rbusValue_GetString(destVal, NULL)) {
+      rbusValue_t errorVal;
+      rbusValue_Init(&errorVal);
+      rbusValue_SetString(errorVal, "dest must be a non-empty string");
+      rbusObject_SetValue(outParams, "error", errorVal);
+      rbusValue_Release(errorVal);
+      return RBUS_ERROR_INVALID_INPUT;
+   }
+
+   // Extract optional parameters
+   const char *source = rbusValue_GetString(sourceVal, NULL);
+   const char *dest = rbusValue_GetString(destVal, NULL);
+   const char *content_type = NULL;
+   rbusValue_t contentTypeVal = rbusObject_GetValue(inParams, "content_type");
+   if (contentTypeVal && rbusValue_GetType(contentTypeVal) == RBUS_STRING) {
+      content_type = rbusValue_GetString(contentTypeVal, NULL);
+   }
+
+   rbusValue_t partnerIdsVal = rbusObject_GetValue(inParams, "partner_ids");
+   rbusValue_t headersVal = rbusObject_GetValue(inParams, "headers");
+   rbusValue_t metadataVal = rbusObject_GetValue(inParams, "metadata");
+   rbusValue_t payloadVal = rbusObject_GetValue(inParams, "payload");
+   rbusValue_t sessionIdVal = rbusObject_GetValue(inParams, "session_id");
+   rbusValue_t transactionUuidVal = rbusObject_GetValue(inParams, "transaction_uuid");
+   rbusValue_t qosVal = rbusObject_GetValue(inParams, "qos");
+   rbusValue_t rdrVal = rbusObject_GetValue(inParams, "rdr");
+
+   // Log the event (in a real implementation, this would forward to Xmidt)
+   printf("Simple Event Received:\n");
+   printf("  Method: %s\n", methodName);
+   printf("  msg_type: %s\n", msg_type_str);
+   printf("  source: %s\n", source);
+   printf("  dest: %s\n", dest);
+   if (content_type) printf("  content_type: %s\n", content_type);
+
+   if (partnerIdsVal && rbusValue_GetType(partnerIdsVal) == RBUS_OBJECT) {
+      rbusObject_t partnerIdsObj = rbusValue_GetObject(partnerIdsVal);
+      if (partnerIdsObj) {
+         printf("  partner_ids: [");
+         rbusProperty_t prop = rbusObject_GetProperties(partnerIdsObj);
+         bool first = true;
+         while (prop) {
+            rbusValue_t val = rbusProperty_GetValue(prop);
+            if (val && rbusValue_GetType(val) == RBUS_STRING) {
+               printf("%s%s", first ? "" : ", ", rbusValue_GetString(val, NULL));
+               first = false;
+            }
+            prop = rbusProperty_GetNext(prop);
+         }
+         printf("]\n");
+      }
+   }
+
+   if (headersVal && rbusValue_GetType(headersVal) == RBUS_OBJECT) {
+      rbusObject_t headersObj = rbusValue_GetObject(headersVal);
+      if (headersObj) {
+         printf("  headers: [");
+         rbusProperty_t prop = rbusObject_GetProperties(headersObj);
+         bool first = true;
+         while (prop) {
+            rbusValue_t val = rbusProperty_GetValue(prop);
+            if (val && rbusValue_GetType(val) == RBUS_STRING) {
+               printf("%s%s", first ? "" : ", ", rbusValue_GetString(val, NULL));
+               first = false;
+            }
+            prop = rbusProperty_GetNext(prop);
+         }
+         printf("]\n");
+      }
+   }
+
+   if (metadataVal && rbusValue_GetType(metadataVal) == RBUS_OBJECT) {
+      rbusObject_t metadataObj = rbusValue_GetObject(metadataVal);
+      if (metadataObj) {
+         printf("  metadata: {");
+         rbusProperty_t prop = rbusObject_GetProperties(metadataObj);
+         bool first = true;
+         while (prop) {
+            const char *key = rbusProperty_GetName(prop);
+            rbusValue_t val = rbusProperty_GetValue(prop);
+            if (key && val && rbusValue_GetType(val) == RBUS_STRING) {
+               printf("%s%s: %s", first ? "" : ", ", key, rbusValue_GetString(val, NULL));
+               first = false;
+            }
+            prop = rbusProperty_GetNext(prop);
+         }
+         printf("}\n");
+      }
+   }
+
+   if (payloadVal && rbusValue_GetType(payloadVal) == RBUS_STRING) {
+      printf("  payload: %s\n", rbusValue_GetString(payloadVal, NULL));
+   }
+   if (sessionIdVal && rbusValue_GetType(sessionIdVal) == RBUS_STRING) {
+      printf("  session_id: %s\n", rbusValue_GetString(sessionIdVal, NULL));
+   }
+   if (transactionUuidVal && rbusValue_GetType(transactionUuidVal) == RBUS_STRING) {
+      printf("  transaction_uuid: %s\n", rbusValue_GetString(transactionUuidVal, NULL));
+   }
+   if (qosVal && rbusValue_GetType(qosVal) == RBUS_INT32) {
+      int32_t qos = rbusValue_GetInt32(qosVal);
+      if (qos >= 0 && qos <= 99) {
+         printf("  qos: %d\n", qos);
+      } else {
+         printf("  qos: %d (invalid, must be 0-99)\n", qos);
+      }
+   }
+   if (rdrVal && rbusValue_GetType(rdrVal) == RBUS_INT32) {
+      printf("  rdr: %d\n", rbusValue_GetInt32(rdrVal));
+   }
+
+   // Set response
+   rbusValue_t resultVal;
+   rbusValue_Init(&resultVal);
+   rbusValue_SetString(resultVal, "Event received");
+   rbusObject_SetValue(outParams, "status", resultVal);
+   rbusValue_Release(resultVal);
+
+   // Publish an RBUS event to simulate Xmidt event forwarding
+   rbusEvent_t event = {.name = dest, .type = RBUS_EVENT_GENERAL, .data = inParams};
+   rbusError_t rc = rbusEvent_Publish(handle, &event);
+   if (rc != RBUS_ERROR_SUCCESS) {
+      fprintf(stderr, "Failed to publish event to %s: %d\n", dest, rc);
+   }
+
+   return RBUS_ERROR_SUCCESS;
+}
+
+
 // Data models with new element types
 const DataElement gDataElements[] = {
    {
@@ -685,7 +833,7 @@ const DataElement gDataElements[] = {
       .name = "Device.DeviceInfo.UpTime",
       .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
       .type = TYPE_UINT,
-      .value.strVal = "unknown",
+      .value.uintVal = 0,
       .getHandler = get_system_uptime,
       .setHandler = NULL,
    },
@@ -1219,7 +1367,7 @@ int main(int argc, char *argv[]) {
    signal(SIGTERM, signal_handler);
 
    if (!loadDataElementsFromJson((argc == 2) ? argv[1] : JSON_FILE)) {
-      fprintf(stderr, "Failed to load data models from %s\n", (argc == 2) ? argv[1] : JSON_FILE);
+      fprintf(stderr, "Failed to load data elements from %s\n", (argc == 2) ? argv[1] : JSON_FILE);
       return 1;
    }
 

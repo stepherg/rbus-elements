@@ -87,6 +87,8 @@ static void signal_handler(int sig) {
 }
 
 static rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char *eventName, rbusFilter_t filter, int32_t interval, bool *autoPublish);
+// Platform-specific implementation to retrieve the system serial number:
+// On macOS, fetches the hardware serial number; on other platforms, uses the MAC address as a fallback identifier.
 static rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
    rbusValue_t value;
    rbusValue_Init(&value);
@@ -114,6 +116,12 @@ static rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t 
    CFIndex length = CFStringGetLength(serialNumber);
    CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
 
+   if (maxSize <= 0 || maxSize > 4096) { // 4096 is an arbitrary upper bound for safety
+      CFRelease(serialNumber);
+      rbusValue_Release(value);
+      return RBUS_ERROR_BUS_ERROR;
+   }
+
    char *serial = (char *)malloc(maxSize);
    if (!serial) {
       CFRelease(serialNumber);
@@ -133,6 +141,8 @@ static rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t 
    free(serial);
 
 #else
+   // On non-Apple platforms, use the MAC address of the first non-loopback interface as a fallback "serial number".
+   // This is not a true serial number, but serves as a unique identifier if no hardware serial is available.
    int sock = socket(AF_INET, SOCK_DGRAM, 0);
    if (sock < 0) {
       rbusValue_Release(value);

@@ -78,7 +78,7 @@ static int g_numElements = 0;
 static int g_totalElements = 0;
 static rbusHandle_t g_rbusHandle = NULL;
 static rbusDataElement_t *g_dataElements = NULL;
-volatile sig_atomic_t g_running = 1;
+static volatile sig_atomic_t g_running = 1;
 static MemoryCache g_mem_cache = {0};
 
 // Signal handler for SIGINT and SIGTERM
@@ -173,9 +173,14 @@ static rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t 
          if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
             if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
                unsigned char *mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
-               snprintf(mac_str, sizeof(mac_str),
+               int ret = snprintf(mac_str, sizeof(mac_str),
                   "%02X%02X%02X%02X%02X%02X",
                   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+               if (ret < 0 || ret >= (int)sizeof(mac_str)) {
+                  close(sock);
+                  rbusValue_Release(value);
+                  return RBUS_ERROR_BUS_ERROR;
+               }
                found = true;
                break;
             }
@@ -210,9 +215,12 @@ static rbusError_t get_system_time(rbusHandle_t handle, rbusProperty_t property,
    }
 
    char time_str[32];
-   snprintf(time_str, sizeof(time_str), "%ld.%06ld", (long)tv.tv_sec, (long)tv.tv_usec);
+   int ret = snprintf(time_str, sizeof(time_str), "%ld.%06ld", (long)tv.tv_sec, (long)tv.tv_usec);
+   if (ret < 0 || ret >= (int)sizeof(time_str)) {
+      rbusValue_Release(value);
+      return RBUS_ERROR_BUS_ERROR;
+   }
 
-   // Set the rbus value to the formatted time string
    rbusValue_SetString(value, time_str);
    rbusProperty_SetValue(property, value);
    rbusValue_Release(value);
@@ -294,25 +302,33 @@ static rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property,
          0);
       if (bsdName) {
          char bsd_name[32];
-         if (CFStringGetCString(bsdName, bsd_name, sizeof(bsd_name), kCFStringEncodingUTF8)) {
-            // Skip loopback (e.g., "lo0")
-            if (strncmp(bsd_name, "lo", 2) != 0) {
-               // Get MAC address from parent controller
-               io_service_t parent;
-               kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent);
-               if (kr == KERN_SUCCESS) {
-                  CFDataRef macData = IORegistryEntryCreateCFProperty(parent,
-                     CFSTR("IOMACAddress"),
-                     kCFAllocatorDefault,
-                     0);
-                  if (macData) {
-                     const UInt8 *bytes = CFDataGetBytePtr(macData);
-                     snprintf(mac_str, sizeof(mac_str),
-                        "%02x:%02x:%02x:%02x:%02x:%02x",
-                        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
+         bool bsdNameValid = CFStringGetCString(bsdName, bsd_name, sizeof(bsd_name), kCFStringEncodingUTF8);
+         if (bsdNameValid && strncmp(bsd_name, "lo", 2) != 0) {
+            io_service_t parent;
+            kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent);
+            if (kr == KERN_SUCCESS) {
+               CFDataRef macData = IORegistryEntryCreateCFProperty(parent,
+                  CFSTR("IOMACAddress"),
+                  kCFAllocatorDefault,
+                  0);
+               if (macData) {
+                  const UInt8 *bytes = CFDataGetBytePtr(macData);
+                  int ret = snprintf(mac_str, sizeof(mac_str),
+                     "%02x:%02x:%02x:%02x:%02x:%02x",
+                     bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
+                  if (ret < 0 || ret >= (int)sizeof(mac_str)) {
                      CFRelease(macData);
-                     found = true;
+                     IOObjectRelease(parent);
+                     CFRelease(bsdName);
+                     IOObjectRelease(service);
+                     IOObjectRelease(iterator);
+                     rbusValue_Release(value);
+                     return RBUS_ERROR_BUS_ERROR;
                   }
+                  CFRelease(macData);
+                  found = true;
+                  IOObjectRelease(parent);
+               } else {
                   IOObjectRelease(parent);
                }
             }
@@ -359,9 +375,14 @@ static rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property,
          if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
             if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
                unsigned char *mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
-               snprintf(mac_str, sizeof(mac_str),
+               int ret = snprintf(mac_str, sizeof(mac_str),
                   "%02x:%02x:%02x:%02x:%02x:%02x",
                   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+               if (ret < 0 || ret >= (int)sizeof(mac_str)) {
+                  close(sock);
+                  rbusValue_Release(value);
+                  return RBUS_ERROR_BUS_ERROR;
+               }
                found = true;
                break;
             }
@@ -386,8 +407,13 @@ static rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property,
 
 // Helper function to update memory cache
 static bool update_memory_cache(void) {
+   static time_t last_check = 0;
    time_t now = time(NULL);
+   if (now == last_check) {
+      return true;
+   }
    if (g_mem_cache.last_updated + MEMORY_CACHE_TIMEOUT > now) {
+      last_check = now;
       return true;
    }
 
@@ -442,6 +468,7 @@ static bool update_memory_cache(void) {
 #endif
 
    g_mem_cache.last_updated = now;
+   last_check = now;
    return true;
 }
 
@@ -525,7 +552,6 @@ static rbusError_t get_local_time(rbusHandle_t handle, rbusProperty_t property, 
    return RBUS_ERROR_SUCCESS;
 }
 
-// Table management
 static uint32_t g_nextInstance = 1;
 typedef struct {
    char name[MAX_NAME_LEN];
@@ -619,7 +645,6 @@ static rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodN
 }
 
 static rbusError_t get_system_info_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
-
    rbusValue_t serialVal, timeVal, uptimeVal;
    rbusValue_Init(&serialVal);
    rbusValue_Init(&timeVal);
@@ -641,6 +666,9 @@ static rbusError_t get_system_info_method(rbusHandle_t handle, const char *metho
    rbusProperty_Release(serialProp);
    rbusProperty_Release(timeProp);
    rbusProperty_Release(uptimeProp);
+   rbusValue_Release(serialVal);
+   rbusValue_Release(timeVal);
+   rbusValue_Release(uptimeVal);
 
    return RBUS_ERROR_SUCCESS;
 }
@@ -820,9 +848,7 @@ static rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char 
    return RBUS_ERROR_SUCCESS;
 }
 
-
-// Data models with new element types
-const DataElement gDataElements[] = {
+static const DataElement gDataElements[] = {
    {
       .name = "Device.DeviceInfo.SerialNumber",
       .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
@@ -1020,9 +1046,14 @@ bool loadDataElementsFromJson(const char *json_path) {
       return false;
    }
 
-   g_totalElements = g_numElements + (sizeof(gDataElements) / sizeof(DataElement));
+   size_t static_elements = sizeof(gDataElements) / sizeof(DataElement);
+   if (g_numElements > INT_MAX - static_elements) {
+      fprintf(stderr, "Too many elements, potential integer overflow\n");
+      cJSON_Delete(root);
+      return false;
+   }
+   g_totalElements = g_numElements + static_elements;
 
-   // Dynamically allocate memory for g_internalDataElements
    g_internalDataElements = (DataElement *)malloc(g_totalElements * sizeof(DataElement));
    if (!g_internalDataElements) {
       fprintf(stderr, "Failed to allocate memory for data models\n");
@@ -1297,7 +1328,9 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
          case TYPE_BASE64: {
             char *str = rbusValue_ToString(value, NULL, 0);
             if (str) {
-               free(g_internalDataElements[i].value.strVal);
+               if (g_internalDataElements[i].value.strVal) {
+                  free(g_internalDataElements[i].value.strVal);
+               }
                g_internalDataElements[i].value.strVal = strdup(str);
                free(str);
                if (!g_internalDataElements[i].value.strVal) {
@@ -1350,7 +1383,9 @@ static void cleanup(void) {
             g_internalDataElements[i].type == TYPE_BASE64) {
             free(g_internalDataElements[i].value.strVal);
          }
-         free(g_dataElements[i].name);
+         if (g_dataElements[i].name) {
+            free(g_dataElements[i].name);
+         }
       }
       free(g_dataElements);
       g_dataElements = NULL;
@@ -1375,6 +1410,8 @@ int main(int argc, char *argv[]) {
    // Set up signal handlers
    signal(SIGINT, signal_handler);
    signal(SIGTERM, signal_handler);
+   signal(SIGHUP, signal_handler);
+   signal(SIGQUIT, signal_handler);
 
    if (!loadDataElementsFromJson((argc == 2) ? argv[1] : JSON_FILE)) {
       fprintf(stderr, "Failed to load data elements from %s\n", (argc == 2) ? argv[1] : JSON_FILE);
@@ -1397,6 +1434,7 @@ int main(int argc, char *argv[]) {
    }
 
    for (int i = 0; i < g_totalElements; i++) {
+      g_dataElements[i].name = NULL;
       g_dataElements[i].name = strdup(g_internalDataElements[i].name);
       if (!g_dataElements[i].name) {
          fprintf(stderr, "Failed to allocate memory for data element name\n");

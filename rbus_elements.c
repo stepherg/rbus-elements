@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <errno.h>
+#include <limits.h>
 #endif
 
 #define MAX_NAME_LEN 256

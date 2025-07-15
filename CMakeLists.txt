@@ -49,7 +49,7 @@ if(NOT CJSON_LIBRARY OR NOT CJSON_INCLUDE_DIR)
   message(FATAL_ERROR "cjson library not found")
 endif()
 
-add_executable(rbus_elements ${CMAKE_SOURCE_DIR}/rbus_elements.c)
+add_executable(rbus_elements ${CMAKE_SOURCE_DIR}/rbus_elements.c ${CMAKE_SOURCE_DIR}/device_info.c)
 target_include_directories(
   rbus_elements PRIVATE ${RBUS_INCLUDE_DIR} ${RTMSG_INCLUDE_DIR}
                         ${CJSON_INCLUDE_DIR})

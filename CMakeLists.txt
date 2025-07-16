@@ -4,7 +4,7 @@ project(rbus_elements)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED YES)
 set(CMAKE_C_FLAGS
-    "${CMAKE_C_FLAGS} -Wall -Wno-typedef-redefinition -Wno-unused-value -fno-asynchronous-unwind-tables -ffunction-sections -I ${CMAKE_SOURCE_DIR}"
+    "${CMAKE_C_FLAGS} -Wall -Wno-unused-value -fno-asynchronous-unwind-tables -Wno-format-truncation -ffunction-sections -I ${CMAKE_SOURCE_DIR}"
 )
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lm -ldl")
 
@@ -49,7 +49,14 @@ if(NOT CJSON_LIBRARY OR NOT CJSON_INCLUDE_DIR)
   message(FATAL_ERROR "cjson library not found")
 endif()
 
-add_executable(rbus_elements ${CMAKE_SOURCE_DIR}/rbus_elements.c ${CMAKE_SOURCE_DIR}/device_info.c)
+add_executable(rbus_elements 
+   ${CMAKE_SOURCE_DIR}/rbus_elements.c 
+   ${CMAKE_SOURCE_DIR}/device_info.c 
+   ${CMAKE_SOURCE_DIR}/methods.c 
+   ${CMAKE_SOURCE_DIR}/handlers.c
+   )
+
+
 target_include_directories(
   rbus_elements PRIVATE ${RBUS_INCLUDE_DIR} ${RTMSG_INCLUDE_DIR}
                         ${CJSON_INCLUDE_DIR})

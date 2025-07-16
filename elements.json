@@ -223,13 +223,7 @@
    },
    {
       "name": "Device.DeviceInfo.FirstUseDate",
-      "value": "2024-02-07T23:52:32",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DeviceInfo.VendorConfigFileNumberOfEntries",
-      "value": "0",
+      "value": "2025-02-07T23:52:32",
       "type": 0,
       "elementType": "property"
    },
@@ -1254,18 +1248,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.Ethernet.InterfaceNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Ethernet.LinkNumberOfEntries",
-      "value": "4",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.Ethernet.Interface.1.Enable",
       "value": "true",
       "type": 0,
@@ -1334,12 +1316,6 @@
    {
       "name": "Device.Ethernet.Interface.1.X_CISCO_COM_AssociatedDevice",
       "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Ethernet.Interface.1.X_RDKCENTRAL-COM_AssociatedDeviceNumberOfEntries",
-      "value": "0",
       "type": 0,
       "elementType": "property"
    },
@@ -1574,12 +1550,6 @@
    {
       "name": "Device.PPP.SupportedNCPs",
       "value": "IPCP,",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.PPP.InterfaceNumberOfEntries",
-      "value": "1",
       "type": 0,
       "elementType": "property"
    },
@@ -1896,12 +1866,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.IP.InterfaceNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.IP.Interface.1.Enable",
       "value": "true",
       "type": 0,
@@ -1968,12 +1932,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.IP.Interface.1.IPv4AddressNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.IP.Interface.1.AutoIPEnable",
       "value": "false",
       "type": 0,
@@ -1994,18 +1952,6 @@
    {
       "name": "Device.IP.Interface.1.ULAEnable",
       "value": "false",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6AddressNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6PrefixNumberOfEntries",
-      "value": "0",
       "type": 0,
       "elementType": "property"
    },
@@ -2060,114 +2006,6 @@
    {
       "name": "Device.IP.Interface.1.X_CISCO_COM_IPv6_IAPD_T2",
       "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv4Address.1.Enable",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv4Address.1.Status",
-      "value": "Enabled",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv4Address.1.Alias",
-      "value": "Interface_1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv4Address.1.IPAddress",
-      "value": "192.168.50.67",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv4Address.1.SubnetMask",
-      "value": "255.255.255.0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv4Address.1.AddressingType",
-      "value": "DHCP",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Enable",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Status",
-      "value": "Enabled",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.IPAddressStatus",
-      "value": "Preferred",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Alias",
-      "value": "IPv6Address1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.IPAddress",
-      "value": "fe80::8e6a:8dff:fe84:c6ba",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Origin",
-      "value": "AutoConfigured",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Prefix",
-      "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.PreferredLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.ValidLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.X_CISCO_COM_PreferredLifetime",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.X_CISCO_COM_ValidLifetime",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Anycast",
-      "value": "false",
       "type": 0,
       "elementType": "property"
    },
@@ -2262,12 +2100,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.Routing.RouterNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.Routing.Router.1.Enable",
       "value": "false",
       "type": 0,
@@ -2282,84 +2114,6 @@
    {
       "name": "Device.Routing.Router.1.Alias",
       "value": "Router2",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv4ForwardingNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.X_CISCO_COM_StaticIPv4ForwardingNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6ForwardingNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.Enable",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.Status",
-      "value": "Enabled",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.Alias",
-      "value": "IPv6Forwarding1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.DestIPPrefix",
-      "value": "fe80::/64",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.ForwardingPolicy",
-      "value": "-1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.NextHop",
-      "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.Interface",
-      "value": "Device.IP.Interface.1.",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.Origin",
-      "value": "Static",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.ForwardingMetric",
-      "value": "256",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.Router.1.IPv6Forwarding.1.ExpirationTime",
-      "value": "2024-02-07T23:52:32",
       "type": 0,
       "elementType": "property"
    },
@@ -2383,12 +2137,6 @@
    },
    {
       "name": "Device.Routing.RIP.X_CISCO_COM_DefaultMetric",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Routing.RIP.InterfaceSettingNumberOfEntries",
       "value": "1",
       "type": 0,
       "elementType": "property"
@@ -2484,12 +2232,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.Routing.RouteInformation.InterfaceSettingNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.DNS.Client.Enable",
       "value": "true",
       "type": 0,
@@ -2498,12 +2240,6 @@
    {
       "name": "Device.DNS.Client.Status",
       "value": "Enabled",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DNS.Client.ServerNumberOfEntries",
-      "value": "1",
       "type": 0,
       "elementType": "property"
    },
@@ -2563,7 +2299,7 @@
    },
    {
       "name": "Device.Firewall.LastChange",
-      "value": "2024-02-07T23:52:32",
+      "value": "2025-02-07T23:52:32",
       "type": 0,
       "elementType": "property"
    },
@@ -2640,12 +2376,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.NAT.PortMappingNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.NAT.X_CISCO_COM_DMZ.Enable",
       "value": "false",
       "type": 0,
@@ -2684,18 +2414,6 @@
    {
       "name": "Device.NAT.X_CISCO_COM_PortTriggers.Enable",
       "value": "false",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.NAT.X_CISCO_COM_PortTriggers.TriggerNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.ClientNumberOfEntries",
-      "value": "1",
       "type": 0,
       "elementType": "property"
    },
@@ -2778,26 +2496,8 @@
       "elementType": "property"
    },
    {
-      "name": "Device.DHCPv4.Client.1.SentOptionNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Client.1.ReqOptionNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.DHCPv4.Server.Enable",
       "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.PoolNumberOfEntries",
-      "value": "1",
       "type": 0,
       "elementType": "property"
    },
@@ -2946,174 +2646,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.DHCPv4.Server.Pool.1.StaticAddressNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.OptionNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.ClientNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.StaticAddress.1.Enable",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.StaticAddress.1.Alias",
-      "value": "StaticAddress3",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.StaticAddress.1.Chaddr",
-      "value": "c4:8b:9f:9f:e2:9e",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.StaticAddress.1.Yiaddr",
-      "value": "192.168.0.3",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.StaticAddress.1.X_CISCO_COM_DeviceName",
-      "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.StaticAddress.1.X_CISCO_COM_Comment",
-      "value": "Office",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Option.1.Enable",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Option.1.Alias",
-      "value": "Option1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Option.1.Tag",
-      "value": "6",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Option.1.Value",
-      "value": "Value2",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.Alias",
-      "value": "Alias0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.X_CISCO_COM_Comment",
-      "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.X_CISCO_COM_Interface",
-      "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.X_CISCO_COM_HostName",
-      "value": "Roberts-iPad",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.ClassId",
-      "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.Chaddr",
-      "value": "ac:3c:0b:30:32:c4",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.Active",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.IPv4AddressNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.OptionNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.IPv4Address.1.IPAddress",
-      "value": "192.168.0.218",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.IPv4Address.1.LeaseTimeRemaining",
-      "value": "2024-02-15T04:01:16Z",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.IPv4Address.1.X_CISCO_COM_LeaseTimeCreation",
-      "value": "1970-01-01T00:00:01Z",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.Option.1.Tag",
-      "value": "55",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv4.Server.Pool.1.Client.1.Option.1.Value",
-      "value": "017903060F77FC",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.ClientNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.DHCPv6.Client.1.Enable",
       "value": "true",
       "type": 0,
@@ -3192,24 +2724,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.DHCPv6.Client.1.ServerNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Client.1.SentOptionNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Client.1.ReceivedOptionNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.DHCPv6.Server.Enable",
       "value": "true",
       "type": 0,
@@ -3218,12 +2732,6 @@
    {
       "name": "Device.DHCPv6.Server.X_CISCO_COM_Type",
       "value": "Stateful",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.PoolNumberOfEntries",
-      "value": "1",
       "type": 0,
       "elementType": "property"
    },
@@ -3374,84 +2882,6 @@
    {
       "name": "Device.DHCPv6.Server.Pool.1.X_RDKCENTRAL-COM_DNSServers",
       "value": "fdc2:126c:7a6d::1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.ClientNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.OptionNumberOfEntries",
-      "value": "2",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.1.Enable",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.1.Alias",
-      "value": "Option1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.1.Tag",
-      "value": "23",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.1.Value",
-      "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.1.PassthroughClient",
-      "value": "Device.DHCPv6.Client.1.",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.2.Enable",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.2.Alias",
-      "value": "Option2",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.2.Tag",
-      "value": "24",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.2.Value",
-      "value": "",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.DHCPv6.Server.Pool.1.Option.2.PassthroughClient",
-      "value": "Device.DHCPv6.Client.1.",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Users.UserNumberOfEntries",
-      "value": "1",
       "type": 0,
       "elementType": "property"
    },
@@ -3650,12 +3080,6 @@
    {
       "name": "Device.X_CISCO_COM_DDNS.Enable",
       "value": "false",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.X_CISCO_COM_DDNS.ServiceNumberOfEntries",
-      "value": "1",
       "type": 0,
       "elementType": "property"
    },
@@ -3984,12 +3408,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.X_CISCO_COM_Security.InternetAccess.AccessPolicyNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.X_CISCO_COM_DeviceControl.IGMPProxyEnable",
       "value": "true",
       "type": 0,
@@ -4266,12 +3684,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.X_CISCO_COM_DeviceControl.LanManagementEntryNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.X_CISCO_COM_DeviceControl.LanManagementEntry.1.LanMode",
       "value": "router",
       "type": 0,
@@ -4446,18 +3858,6 @@
       "elementType": "property"
    },
    {
-      "name": "Device.Bridging.BridgeNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.FilterNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
       "name": "Device.Bridging.Bridge.1.Enable",
       "value": "true",
       "type": 0,
@@ -4478,54 +3878,6 @@
    {
       "name": "Device.Bridging.Bridge.1.Standard",
       "value": "802.1Q-2005",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.Bridge.1.PortNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.Bridge.1.VLANNumberOfEntries",
-      "value": "1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.Bridge.1.VLANPortNumberOfEntries",
-      "value": "0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.Bridge.1.Port.1.Enable",
-      "value": "true",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.Bridge.1.Port.1.Status",
-      "value": "Unknown",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.Bridge.1.Port.1.Alias",
-      "value": "Port1",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.Bridge.1.Port.1.Name",
-      "value": "brlan0",
-      "type": 0,
-      "elementType": "property"
-   },
-   {
-      "name": "Device.Bridging.Bridge.1.Port.1.LastChange",
-      "value": "1707414633",
       "type": 0,
       "elementType": "property"
    },

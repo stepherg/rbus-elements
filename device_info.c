@@ -12,13 +12,8 @@ static MemoryCache g_mem_cache = {0};
 
 // Helper function to update memory cache
 static bool update_memory_cache(void) {
-   static time_t last_check = 0;
    time_t now = time(NULL);
-   if (now == last_check) {
-      return true;
-   }
-   if (g_mem_cache.last_updated + MEMORY_CACHE_TIMEOUT > now) {
-      last_check = now;
+   if (now - g_mem_cache.last_updated < MEMORY_CACHE_TIMEOUT) {
       return true;
    }
 
@@ -73,7 +68,6 @@ static bool update_memory_cache(void) {
 #endif
 
    g_mem_cache.last_updated = now;
-   last_check = now;
    return true;
 }
 

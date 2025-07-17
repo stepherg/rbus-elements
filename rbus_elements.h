@@ -116,8 +116,6 @@ typedef struct {
    } value;
 } InitialRowValue;
 
-bool is_string_type(ValueType type);
-
 // Built-in DeviceInfo data models
 rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options);
 rbusError_t get_system_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options);
@@ -145,9 +143,6 @@ rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, co
 rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options);
 rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t *options);
 
+#define IS_STRING_TYPE(type) (type == TYPE_STRING || type == TYPE_DATETIME || type == TYPE_BASE64)
+
 char *create_wildcard(const char *name);
-char *get_parent_table(const char *table_wild);
-char *get_parent_concrete(const char *c_table, uint32_t *p_inst);
-void ensure_table(const char *table_wild);
-bool is_digit_str(const char *str);
-int count_indices(const char *name);

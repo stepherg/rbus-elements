@@ -6,15 +6,6 @@ extern int g_num_tables;
 extern TableDef *g_tables;
 extern rbusHandle_t g_rbusHandle;
 
-
-bool is_digit_str(const char *str) {
-   if (*str == '\0') return false;
-   char *end;
-   errno = 0;
-   long val = strtol(str, &end, 10);
-   return (errno == 0 && *end == '\0' && val > 0);
-}
-
 char *get_table_name(const char *name, uint32_t *instance, char **property_name) {
    char *dup = strdup(name);
    if (!dup) return NULL;
@@ -170,7 +161,7 @@ rbusError_t table_add_row(rbusHandle_t handle, const char *tableName, const char
    rbusError_t rc = rbusEvent_Publish(handle, &event);
    if (rc != RBUS_ERROR_SUCCESS) {
       //fprintf(stderr, "Failed to publish table add event for %s: %d\n", row->name, rc);
-}
+   }
 
    return RBUS_ERROR_SUCCESS;
 }
@@ -270,7 +261,7 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
    RowProperty *p = table->rows[row_index].props;
    while (p) {
       RowProperty *next = p->next;
-      if (is_string_type(p->type)) {
+      if (IS_STRING_TYPE(p->type)) {
          free(p->value.strVal);
       }
       free(p);
@@ -545,7 +536,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
                return RBUS_ERROR_INVALID_INPUT;
             }
 
-            if (is_string_type(type)) {
+            if (IS_STRING_TYPE(type)) {
                free(g_internalDataElements[i].value.strVal);
                g_internalDataElements[i].value.strVal = strdup(rbusValue_GetString(value, NULL));
                if (!g_internalDataElements[i].value.strVal) {
@@ -625,8 +616,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
 
       ValueType type;
       if (!p) {
-         char wildcard[MAX_NAME_LEN];
-         snprintf(wildcard, MAX_NAME_LEN, "%s{i}.%s", tbl, prop);
+         char *wildcard = create_wildcard(name);
          DataElement *de = NULL;
          for (int i = 0; i < g_totalElements; i++) {
             if (strcmp(g_internalDataElements[i].name, wildcard) == 0 && g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
@@ -637,6 +627,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
          if (!de) {
             free(tbl);
             free(prop);
+            free(wildcard);
             return RBUS_ERROR_BUS_ERROR;
          }
 
@@ -644,6 +635,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
          if (!p) {
             free(tbl);
             free(prop);
+            free(wildcard);
             return RBUS_ERROR_BUS_ERROR;
          }
 
@@ -657,6 +649,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
          } else {
             row->props = p;
          }
+         free(wildcard);
       }
 
       type = p->type;
@@ -677,7 +670,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
          return RBUS_ERROR_INVALID_INPUT;
       }
 
-      if (is_string_type(type)) {
+      if (IS_STRING_TYPE(type)) {
          free(p->value.strVal);
          p->value.strVal = strdup(rbusValue_GetString(value, NULL));
          if (!p->value.strVal) {

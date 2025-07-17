@@ -11,9 +11,22 @@ int g_num_tables = 0;
 InitialRowValue *g_initial_values = NULL;
 int g_num_initial = 0;
 
+static char *get_parent_table(const char *table_wild);
+static char *get_parent_concrete(const char *c_table, uint32_t *p_inst);
+static void ensure_table(const char *table_wild);
+static int count_indices(const char *name);
+
 // Signal handler for SIGINT and SIGTERM
 static void signal_handler(int sig) {
    g_running = 0;
+}
+
+static bool is_digit_str(const char *str) {
+   if (*str == '\0') return false;
+   char *end;
+   errno = 0;
+   long val = strtol(str, &end, 10);
+   return (errno == 0 && *end == '\0' && val > 0);
 }
 
 static const DataElement gDataElements[] = {
@@ -209,10 +222,6 @@ static int compare_tables(const void *a, const void *b) {
    return da - db;
 }
 
-bool is_string_type(ValueType type) {
-   return type == TYPE_STRING || type == TYPE_DATETIME || type == TYPE_BASE64;
-}
-
 bool loadDataElementsFromJson(const char *json_path) {
    FILE *file = fopen(json_path, "r");
    if (!file) {
@@ -271,13 +280,19 @@ bool loadDataElementsFromJson(const char *json_path) {
       cJSON *type_obj = cJSON_GetObjectItem(item, "type");
       cJSON *value_obj = cJSON_GetObjectItem(item, "value");
 
-      if (!cJSON_IsString(name_obj) || !cJSON_IsString(element_type_obj)) {
-         fprintf(stderr, "Invalid name or elementType for item %d\n", i);
+      if (!cJSON_IsString(name_obj)) {
+         fprintf(stderr, "Invalid name for item %d\n", i);
          goto load_fail;
       }
 
+      const char *element_type_str;
+      if (element_type_obj && cJSON_IsString(element_type_obj)) {
+         element_type_str = cJSON_GetStringValue(element_type_obj);
+      } else {
+         element_type_str = "property";
+      }
+
       const char *name = cJSON_GetStringValue(name_obj);
-      const char *element_type_str = cJSON_GetStringValue(element_type_obj);
       rbusElementType_t element_type;
 
       if (strcmp(element_type_str, "property") == 0) {
@@ -600,7 +615,7 @@ bool loadDataElementsFromJson(const char *json_path) {
       de->eventSubHandler = gDataElements[j].eventSubHandler;
       de->methodHandler = gDataElements[j].methodHandler;
 
-      if (is_string_type(de->type)) {
+      if (IS_STRING_TYPE(de->type)) {
          de->value.strVal = strdup(gDataElements[j].value.strVal);
          if (!de->value.strVal) {
             fprintf(stderr, "Failed to allocate memory for global data model string\n");
@@ -622,7 +637,7 @@ load_fail:
    // Free allocated
 
    for (int j = 0; j < g_numElements; j++) {
-      if (is_string_type(g_internalDataElements[j].type)) {
+      if (IS_STRING_TYPE(g_internalDataElements[j].type)) {
          free(g_internalDataElements[j].value.strVal);
       }
    }
@@ -631,7 +646,7 @@ load_fail:
    g_numElements = 0;
 
    for (int j = 0; j < num_initial; j++) {
-      if (is_string_type(initial_values[j].type)) {
+      if (IS_STRING_TYPE(initial_values[j].type)) {
          free(initial_values[j].value.strVal);
       }
    }
@@ -648,7 +663,7 @@ static void cleanup(void) {
             g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_EVENT) {
             rbusEvent_Unsubscribe(g_rbusHandle, g_internalDataElements[i].name);
          }
-         if (is_string_type(g_internalDataElements[i].type)) {
+         if (IS_STRING_TYPE(g_internalDataElements[i].type)) {
             free(g_internalDataElements[i].value.strVal);
          }
          free(g_dataElements[i].name);
@@ -663,7 +678,7 @@ static void cleanup(void) {
          RowProperty *p = g_tables[i].rows[j].props;
          while (p) {
             RowProperty *next = p->next;
-            if (is_string_type(p->type)) {
+            if (IS_STRING_TYPE(p->type)) {
                free(p->value.strVal);
             }
             free(p);
@@ -938,7 +953,7 @@ int main(int argc, char *argv[]) {
 
    // Free initial
    for (int j = 0; j < g_num_initial; j++) {
-      if (is_string_type(g_initial_values[j].type)) {
+      if (IS_STRING_TYPE(g_initial_values[j].type)) {
          free(g_initial_values[j].value.strVal);
       }
    }

@@ -157,11 +157,7 @@ rbusError_t table_add_row(rbusHandle_t handle, const char *tableName, const char
    *instNum = row->instNum;
    table->num_rows++;
 
-   rbusEvent_t event = {.name = row->name, .type = RBUS_EVENT_OBJECT_CREATED, .data = NULL};
-   rbusError_t rc = rbusEvent_Publish(handle, &event);
-   if (rc != RBUS_ERROR_SUCCESS) {
-      //fprintf(stderr, "Failed to publish table add event for %s: %d\n", row->name, rc);
-   }
+   // fprintf(stderr, "table_add_row: %s, instNum: %d\n", row->name, *instNum);
 
    return RBUS_ERROR_SUCCESS;
 }
@@ -171,7 +167,6 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
       return RBUS_ERROR_INVALID_INPUT;
    }
 
-   fprintf(stderr, "Removing row: %s\n", rowName);
    size_t len = strlen(rowName);
    if (len == 0 || rowName[len - 1] != '.') {
       return RBUS_ERROR_INVALID_INPUT;
@@ -195,8 +190,6 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
 
    char tableName[MAX_NAME_LEN];
    snprintf(tableName, MAX_NAME_LEN, "%s.", buf);  // Reconstruct table name with trailing dot
-
-   fprintf(stderr, "tableName: %s\n", tableName);
 
    int instance = 0;
    char *extracted_alias = NULL;
@@ -276,7 +269,7 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
    // Publish deletion event
    rbusEvent_t event = {.name = rowName, .type = RBUS_EVENT_OBJECT_DELETED, .data = NULL};
    rbusError_t rc = rbusEvent_Publish(handle, &event);
-   if (rc != RBUS_ERROR_SUCCESS) {
+   if (rc != RBUS_ERROR_SUCCESS && rc != RBUS_ERROR_NOSUBSCRIBERS) {
       fprintf(stderr, "Failed to publish table remove event for %s: %d\n", rowName, rc);
    }
 

@@ -11,6 +11,11 @@ int g_num_tables = 0;
 InitialRowValue *g_initial_values = NULL;
 int g_num_initial = 0;
 
+typedef struct {
+   char name[MAX_NAME_LEN];
+   uint32_t max_inst;
+}TableMaxInst;
+
 static char *get_parent_table(const char *table_wild);
 static char *get_parent_concrete(const char *c_table, uint32_t *p_inst);
 static void ensure_table(const char *table_wild);
@@ -208,15 +213,9 @@ int count_indices(const char *name) {
    return count;
 }
 
-struct TableMaxInst {
-   char name[MAX_NAME_LEN];
-   uint32_t max_inst;
-} *table_max = NULL;
-
-
 static int compare_tables(const void *a, const void *b) {
-   const struct TableMaxInst *ta = (const struct TableMaxInst *)a;
-   const struct TableMaxInst *tb = (const struct TableMaxInst *)b;
+   const TableMaxInst *ta = (const TableMaxInst *)a;
+   const TableMaxInst *tb = (const TableMaxInst *)b;
    int da = count_indices(ta->name);
    int db = count_indices(tb->name);
    return da - db;
@@ -775,6 +774,32 @@ void ensure_table(const char *table_wild) {
    }
 }
 
+static int num_table_max = 0;
+static TableMaxInst *table_max = NULL;
+static void update_max(const char *t_name, uint32_t inst) {
+   for (int k = 0; k < num_table_max; k++) {
+      if (strcmp(table_max[k].name, t_name) == 0) {
+         if (inst > table_max[k].max_inst) table_max[k].max_inst = inst;
+         return;
+      }
+   }
+   table_max = realloc(table_max, (num_table_max + 1) * sizeof(TableMaxInst));
+   strcpy(table_max[num_table_max].name, t_name);
+   table_max[num_table_max].max_inst = inst;
+   num_table_max++;
+}
+
+static void ensure_inst(const char *c_table, uint32_t c_inst) {
+   if (!c_table) return;
+   update_max(c_table, c_inst);
+   uint32_t p_inst = 0;
+   char *p_table = get_parent_concrete(c_table, &p_inst);
+   if (p_table) {
+      ensure_inst(p_table, p_inst);
+   }
+   free(p_table);
+}
+
 int main(int argc, char *argv[]) {
 
    // Set up signal handlers
@@ -830,38 +855,12 @@ int main(int argc, char *argv[]) {
    // Populate initial rows and values
 
    // First, collect unique concrete tables and max_inst recursively
-   int num_table_max = 0;
-
-   void update_max(const char *t_name, uint32_t inst) {
-      for (int k = 0; k < num_table_max; k++) {
-         if (strcmp(table_max[k].name, t_name) == 0) {
-            if (inst > table_max[k].max_inst) table_max[k].max_inst = inst;
-            return;
-         }
-      }
-      table_max = realloc(table_max, (num_table_max + 1) * sizeof(struct TableMaxInst));
-      strcpy(table_max[num_table_max].name, t_name);
-      table_max[num_table_max].max_inst = inst;
-      num_table_max++;
-   }
-
-   void ensure_inst(const char *c_table, uint32_t c_inst) {
-      if (!c_table) return;
-      update_max(c_table, c_inst);
-      uint32_t p_inst = 0;
-      char *p_table = get_parent_concrete(c_table, &p_inst);
-      if (p_table) {
-         ensure_inst(p_table, p_inst);
-      }
-      free(p_table);
-   }
-
    for (int j = 0; j < g_num_initial; j++) {
       ensure_inst(g_initial_values[j].table, g_initial_values[j].inst);
    }
 
    // Sort by increasing number of indices (outer first)
-   qsort(table_max, num_table_max, sizeof(struct TableMaxInst), compare_tables);
+   qsort(table_max, num_table_max, sizeof(TableMaxInst), compare_tables);
 
    // Add initial rows
    for (int k = 0; k < num_table_max; k++) {
@@ -895,6 +894,7 @@ int main(int argc, char *argv[]) {
          row->props = NULL;
          table->num_rows++;
 
+         //rc = rbusTable_registerRow(g_rbusHandle, row->name, row->instNum, NULL);
          rc = rbusTable_addRow(g_rbusHandle, row->name, row->alias, &row->instNum);
          if (rc != RBUS_ERROR_SUCCESS) {
             fprintf(stderr, "Failed to register initial row %s: %d\n", row->name, rc);

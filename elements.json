@@ -6110,11 +6110,6 @@
       "type": 0
    },
    {
-      "name": "Device.DHCPv6.Server.Pool.1.IANAPrefixes",
-      "value": "Device.IP.Interface.1.IPv6Prefix.1.",
-      "type": 0
-   },
-   {
       "name": "Device.DHCPv6.Server.Pool.1.IAPDAddLength",
       "value": "0",
       "type": 0
@@ -7310,11 +7305,6 @@
       "type": 3
    },
    {
-      "name": "Device.Ethernet.Interface.1.X_CISCO_COM_AssociatedDevice",
-      "value": "",
-      "type": 0
-   },
-   {
       "name": "Device.Ethernet.Interface.2.Alias",
       "value": "Interface2",
       "type": 0
@@ -7443,11 +7433,6 @@
       "name": "Device.Ethernet.Interface.2.Upstream",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.Ethernet.Interface.2.X_CISCO_COM_AssociatedDevice",
-      "value": "",
-      "type": 0
    },
    {
       "name": "Device.Ethernet.Interface.3.Alias",
@@ -7580,11 +7565,6 @@
       "type": 3
    },
    {
-      "name": "Device.Ethernet.Interface.3.X_CISCO_COM_AssociatedDevice",
-      "value": "",
-      "type": 0
-   },
-   {
       "name": "Device.Ethernet.Interface.4.Alias",
       "value": "Interface4",
       "type": 0
@@ -7713,11 +7693,6 @@
       "name": "Device.Ethernet.Interface.4.Upstream",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.Ethernet.Interface.4.X_CISCO_COM_AssociatedDevice",
-      "value": "",
-      "type": 0
    },
    {
       "name": "Device.Ethernet.Interface.5.Alias",
@@ -7850,11 +7825,6 @@
       "type": 3
    },
    {
-      "name": "Device.Ethernet.Interface.5.X_CISCO_COM_AssociatedDevice",
-      "value": "",
-      "type": 0
-   },
-   {
       "name": "Device.Ethernet.Interface.6.Alias",
       "value": "Interface6",
       "type": 0
@@ -7983,11 +7953,6 @@
       "name": "Device.Ethernet.Interface.6.Upstream",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.Ethernet.Interface.6.X_CISCO_COM_AssociatedDevice",
-      "value": "",
-      "type": 0
    },
    {
       "name": "Device.Ethernet.Interface.7.Alias",
@@ -8120,11 +8085,6 @@
       "type": 3
    },
    {
-      "name": "Device.Ethernet.Interface.7.X_CISCO_COM_AssociatedDevice",
-      "value": "",
-      "type": 0
-   },
-   {
       "name": "Device.Ethernet.Interface.8.Alias",
       "value": "Interface8",
       "type": 0
@@ -8253,11 +8213,6 @@
       "name": "Device.Ethernet.Interface.8.Upstream",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.Ethernet.Interface.8.X_CISCO_COM_AssociatedDevice",
-      "value": "",
-      "type": 0
    },
    {
       "name": "Device.Ethernet.Link.1.Alias",
@@ -9290,66 +9245,6 @@
       "type": 3
    },
    {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Alias",
-      "value": "IPv6Address1",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Anycast",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Enable",
-      "value": "true",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.IPAddress",
-      "value": "fe80::8e6a:8dff:fe84:c6ba",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.IPAddressStatus",
-      "value": "Preferred",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Origin",
-      "value": "AutoConfigured",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.PreferredLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Prefix",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.Status",
-      "value": "Enabled",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.ValidLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.X_CISCO_COM_PreferredLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.IP.Interface.1.IPv6Address.1.X_CISCO_COM_ValidLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.IP.Interface.1.IPv6Enable",
       "value": "true",
       "type": 3
@@ -9573,66 +9468,6 @@
       "name": "Device.IP.Interface.2.IPv4Enable",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.Alias",
-      "value": "IPv6Address1",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.Anycast",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.Enable",
-      "value": "true",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.IPAddress",
-      "value": "fe80::211:22ff:fe33:4455",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.IPAddressStatus",
-      "value": "Preferred",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.Origin",
-      "value": "AutoConfigured",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.PreferredLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.Prefix",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.Status",
-      "value": "Enabled",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.ValidLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.X_CISCO_COM_PreferredLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.IP.Interface.2.IPv6Address.1.X_CISCO_COM_ValidLifetime",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.IP.Interface.2.IPv6Enable",
@@ -9860,66 +9695,6 @@
       "type": 3
    },
    {
-      "name": "Device.IP.Interface.3.IPv6Address.1.Alias",
-      "value": "IPv6Address1",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.Anycast",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.Enable",
-      "value": "true",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.IPAddress",
-      "value": "::1",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.IPAddressStatus",
-      "value": "Preferred",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.Origin",
-      "value": "WellKnown",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.PreferredLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.Prefix",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.Status",
-      "value": "Enabled",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.ValidLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.X_CISCO_COM_PreferredLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.IP.Interface.3.IPv6Address.1.X_CISCO_COM_ValidLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.IP.Interface.3.IPv6Enable",
       "value": "true",
       "type": 3
@@ -10143,66 +9918,6 @@
       "name": "Device.IP.Interface.4.IPv4Enable",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.Alias",
-      "value": "IPv6Address1",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.Anycast",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.Enable",
-      "value": "true",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.IPAddress",
-      "value": "fe80::8e6a:8dff:fe84:c6bc",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.IPAddressStatus",
-      "value": "Preferred",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.Origin",
-      "value": "AutoConfigured",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.PreferredLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.Prefix",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.Status",
-      "value": "Enabled",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.ValidLifetime",
-      "value": "9999-12-31T23:59:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.X_CISCO_COM_PreferredLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.IP.Interface.4.IPv6Address.1.X_CISCO_COM_ValidLifetime",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.IP.Interface.4.IPv6Enable",
@@ -10435,81 +10150,6 @@
       "type": 3
    },
    {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.Alias",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.Autonomous",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.ChildPrefixBits",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.Enable",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.OnLink",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.Origin",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.ParentPrefix",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.PreferredLifetime",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.Prefix",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.PrefixStatus",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.StaticType",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.Status",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.ValidLifetime",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.X_CISCO_COM_PreferredLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.IP.Interface.5.IPv6Prefix.1.X_CISCO_COM_ValidLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.IP.Interface.5.LastChange",
       "value": "1707414528",
       "type": 2
@@ -10733,81 +10373,6 @@
       "name": "Device.IP.Interface.6.IPv6Enable",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.Alias",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.Autonomous",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.ChildPrefixBits",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.Enable",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.OnLink",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.Origin",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.ParentPrefix",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.PreferredLifetime",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.Prefix",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.PrefixStatus",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.StaticType",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.Status",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.ValidLifetime",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.X_CISCO_COM_PreferredLifetime",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.IP.Interface.6.IPv6Prefix.1.X_CISCO_COM_ValidLifetime",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.IP.Interface.6.LastChange",
@@ -11730,11 +11295,6 @@
       "type": 3
    },
    {
-      "name": "Device.WiFi.AccessPoint.1.MaxAssociatedDevices",
-      "value": "64",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.1.RetryLimit",
       "value": "7",
       "type": 2
@@ -12080,26 +11640,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.1.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.1.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.1.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.1.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.1.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -12123,11 +11663,6 @@
       "name": "Device.WiFi.AccessPoint.10.IsolationEnable",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.10.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.10.RetryLimit",
@@ -12475,26 +12010,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.10.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.10.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.10.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.10.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.10.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -12518,11 +12033,6 @@
       "name": "Device.WiFi.AccessPoint.11.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.11.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.11.RetryLimit",
@@ -12870,26 +12380,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.11.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.11.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.11.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.11.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.11.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -12913,11 +12403,6 @@
       "name": "Device.WiFi.AccessPoint.12.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.12.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.12.RetryLimit",
@@ -13265,26 +12750,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.12.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.12.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.12.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.12.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.12.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -13308,11 +12773,6 @@
       "name": "Device.WiFi.AccessPoint.13.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.13.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.13.RetryLimit",
@@ -13660,26 +13120,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.13.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.13.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.13.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.13.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.13.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -13703,11 +13143,6 @@
       "name": "Device.WiFi.AccessPoint.14.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.14.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.14.RetryLimit",
@@ -14055,26 +13490,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.14.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.14.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.14.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.14.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.14.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -14098,11 +13513,6 @@
       "name": "Device.WiFi.AccessPoint.15.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.15.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.15.RetryLimit",
@@ -14450,26 +13860,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.15.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.15.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.15.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.15.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.15.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -14485,306 +13875,6 @@
       "type": 0
    },
    {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Active",
-      "value": "true",
-      "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.AuthenticationState",
-      "value": "true",
-      "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.LastDataDownlinkRate",
-      "value": "1225",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.LastDataUplinkRate",
-      "value": "1441",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.MACAddress",
-      "value": "A0:2D:13:10:06:C1",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Retransmissions",
-      "value": "49203",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.SignalStrength",
-      "value": "-65",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.BytesReceived",
-      "value": "48830496",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.BytesSent",
-      "value": "26327544",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.ErrorsSent",
-      "value": "1526",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.FailedRetransCount",
-      "value": "9",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.InstantMeasurementsEnable",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.MultipleRetryCount",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.PacketsReceived",
-      "value": "148787",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.PacketsSent",
-      "value": "192520",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.RetransCount",
-      "value": "49203",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.Stats.RetryCount",
-      "value": "77",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_AuthenticationFailures",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_BytesReceived",
-      "value": "48830496",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_BytesSent",
-      "value": "26327544",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_DataFramesSentAck",
-      "value": "143317",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_DataFramesSentNoAck",
-      "value": "49203",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_Disassociations",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_InterferenceSources",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_MaxRSSI",
-      "value": "0",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_MinRSSI",
-      "value": "0",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_OperatingChannelBandwidth",
-      "value": "80",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_OperatingStandard",
-      "value": "ax",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_RSSI",
-      "value": "-65",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.1.X_COMCAST-COM_SNR",
-      "value": "21",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Active",
-      "value": "true",
-      "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.AuthenticationState",
-      "value": "true",
-      "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.LastDataDownlinkRate",
-      "value": "1361",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.LastDataUplinkRate",
-      "value": "1361",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.MACAddress",
-      "value": "A0:2D:13:10:0D:99",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Retransmissions",
-      "value": "33540",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.SignalStrength",
-      "value": "-63",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.BytesReceived",
-      "value": "55033749",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.BytesSent",
-      "value": "24588170",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.ErrorsSent",
-      "value": "1026",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.FailedRetransCount",
-      "value": "12",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.InstantMeasurementsEnable",
-      "value": "false",
-      "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.MultipleRetryCount",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.PacketsReceived",
-      "value": "123480",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.PacketsSent",
-      "value": "147761",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.RetransCount",
-      "value": "33540",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.Stats.RetryCount",
-      "value": "68",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_AuthenticationFailures",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_BytesReceived",
-      "value": "55033749",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_BytesSent",
-      "value": "24588170",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_DataFramesSentAck",
-      "value": "114221",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_DataFramesSentNoAck",
-      "value": "33540",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_Disassociations",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_InterferenceSources",
-      "value": "",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_MaxRSSI",
-      "value": "0",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_MinRSSI",
-      "value": "0",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_OperatingChannelBandwidth",
-      "value": "80",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_OperatingStandard",
-      "value": "ax",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_RSSI",
-      "value": "-63",
-      "type": 1
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.AssociatedDevice.2.X_COMCAST-COM_SNR",
-      "value": "23",
-      "type": 1
-   },
-   {
       "name": "Device.WiFi.AccessPoint.16.Enable",
       "value": "true",
       "type": 3
@@ -14793,11 +13883,6 @@
       "name": "Device.WiFi.AccessPoint.16.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.MaxAssociatedDevices",
-      "value": "64",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.16.RetryLimit",
@@ -15145,26 +14230,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.16.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "2",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.16.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.16.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -15188,11 +14253,6 @@
       "name": "Device.WiFi.AccessPoint.2.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.2.MaxAssociatedDevices",
-      "value": "64",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.2.RetryLimit",
@@ -15540,26 +14600,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.2.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.2.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.2.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.2.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.2.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -15583,11 +14623,6 @@
       "name": "Device.WiFi.AccessPoint.3.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.3.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.3.RetryLimit",
@@ -15935,26 +14970,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.3.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.3.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.3.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.3.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.3.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -15978,11 +14993,6 @@
       "name": "Device.WiFi.AccessPoint.4.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.4.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.4.RetryLimit",
@@ -16330,26 +15340,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.4.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.4.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.4.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.4.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.4.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -16373,11 +15363,6 @@
       "name": "Device.WiFi.AccessPoint.5.IsolationEnable",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.5.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.5.RetryLimit",
@@ -16725,26 +15710,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.5.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.5.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.5.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.5.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.5.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -16768,11 +15733,6 @@
       "name": "Device.WiFi.AccessPoint.6.IsolationEnable",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.6.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.6.RetryLimit",
@@ -17120,26 +16080,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.6.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.6.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.6.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.6.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.6.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -17163,11 +16103,6 @@
       "name": "Device.WiFi.AccessPoint.7.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.7.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.7.RetryLimit",
@@ -17515,26 +16450,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.7.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.7.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.7.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.7.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.7.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -17558,11 +16473,6 @@
       "name": "Device.WiFi.AccessPoint.8.IsolationEnable",
       "value": "false",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.8.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.8.RetryLimit",
@@ -17910,26 +16820,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.8.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.8.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.8.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.8.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.8.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -17953,11 +16843,6 @@
       "name": "Device.WiFi.AccessPoint.9.IsolationEnable",
       "value": "true",
       "type": 3
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.9.MaxAssociatedDevices",
-      "value": "0",
-      "type": 2
    },
    {
       "name": "Device.WiFi.AccessPoint.9.RetryLimit",
@@ -18305,26 +17190,6 @@
       "type": 1
    },
    {
-      "name": "Device.WiFi.AccessPoint.9.X_COMCAST-COM_AssociatedDevicesHighWatermark",
-      "value": "0",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.9.X_COMCAST-COM_AssociatedDevicesHighWatermarkDate",
-      "value": "1683714889",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.9.X_COMCAST-COM_AssociatedDevicesHighWatermarkThreshold",
-      "value": "50",
-      "type": 2
-   },
-   {
-      "name": "Device.WiFi.AccessPoint.9.X_COMCAST-COM_AssociatedDevicesHighWatermarkThresholdReached",
-      "value": "0",
-      "type": 2
-   },
-   {
       "name": "Device.WiFi.AccessPoint.9.X_COMCAST-COM_MAC_FilteringMode",
       "value": "Allow-ALL",
       "type": 0
@@ -18477,156 +17342,6 @@
    {
       "name": "Device.WiFi.MultiAP.APDevice.1.Radio.1.TransmitPowerLimit",
       "value": "22",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Active",
-      "value": "true",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.AssociationTime",
-      "value": "2025-05-09T15:26:59Z",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.LastDataDownlinkRate",
-      "value": "1361000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.LastDataUplinkRate",
-      "value": "1361000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.MACAddress",
-      "value": "a0:2d:13:10:0d:99",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Noise",
-      "value": "48",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.OperatingStandard",
-      "value": "ax",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.SignalStrength",
-      "value": "94",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Stats.BytesReceived",
-      "value": "49904640",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Stats.BytesSent",
-      "value": "11070464",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Stats.ErrorsReceived",
-      "value": "0",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Stats.ErrorsSent",
-      "value": "1026",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Stats.PacketsReceived",
-      "value": "115440",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Stats.PacketsSent",
-      "value": "88374",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.1.Stats.RetransCount",
-      "value": "68",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Active",
-      "value": "true",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.AssociationTime",
-      "value": "2025-05-09T15:30:16Z",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.LastDataDownlinkRate",
-      "value": "1020000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.LastDataUplinkRate",
-      "value": "1441000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.MACAddress",
-      "value": "a0:2d:13:10:06:c1",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Noise",
-      "value": "48",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.OperatingStandard",
-      "value": "ax",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.SignalStrength",
-      "value": "90",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Stats.BytesReceived",
-      "value": "44228608",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Stats.BytesSent",
-      "value": "12809216",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Stats.ErrorsReceived",
-      "value": "0",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Stats.ErrorsSent",
-      "value": "1526",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Stats.PacketsReceived",
-      "value": "143799",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Stats.PacketsSent",
-      "value": "118093",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.1.Radio.2.AP.1.AssociatedDevice.2.Stats.RetransCount",
-      "value": "77",
       "type": 0
    },
    {
@@ -18857,156 +17572,6 @@
    {
       "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.1.SSID",
       "value": "A2A17A_bh9712",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Active",
-      "value": "true",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.AssociationTime",
-      "value": "2025-05-09T15:27:37Z",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.LastDataDownlinkRate",
-      "value": "292000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.LastDataUplinkRate",
-      "value": "24000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.MACAddress",
-      "value": "b8:27:eb:6c:8b:74",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Noise",
-      "value": "26",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.OperatingStandard",
-      "value": "ac",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.SignalStrength",
-      "value": "56",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Stats.BytesReceived",
-      "value": "4410368",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Stats.BytesSent",
-      "value": "175104",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Stats.ErrorsReceived",
-      "value": "2",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Stats.ErrorsSent",
-      "value": "9",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Stats.PacketsReceived",
-      "value": "1210",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Stats.PacketsSent",
-      "value": "62078",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.1.Stats.RetransCount",
-      "value": "648",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Active",
-      "value": "true",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.AssociationTime",
-      "value": "2025-05-09T15:27:40Z",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.LastDataDownlinkRate",
-      "value": "292000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.LastDataUplinkRate",
-      "value": "195000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.MACAddress",
-      "value": "b8:27:eb:08:a5:31",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Noise",
-      "value": "26",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.OperatingStandard",
-      "value": "ac",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.SignalStrength",
-      "value": "54",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Stats.BytesReceived",
-      "value": "4464640",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Stats.BytesSent",
-      "value": "176128",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Stats.ErrorsReceived",
-      "value": "1",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Stats.ErrorsSent",
-      "value": "1",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Stats.PacketsReceived",
-      "value": "1215",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Stats.PacketsSent",
-      "value": "62853",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.2.Radio.2.AP.2.AssociatedDevice.2.Stats.RetransCount",
-      "value": "580",
       "type": 0
    },
    {
@@ -19297,81 +17862,6 @@
    {
       "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.1.SSID",
       "value": "A2A17A_bh9712",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Active",
-      "value": "true",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.AssociationTime",
-      "value": "2025-05-09T15:35:29Z",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.LastDataDownlinkRate",
-      "value": "390000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.LastDataUplinkRate",
-      "value": "292000",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.MACAddress",
-      "value": "b8:27:eb:3a:b8:ad",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Noise",
-      "value": "32",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.OperatingStandard",
-      "value": "ac",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.SignalStrength",
-      "value": "70",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Stats.BytesReceived",
-      "value": "4249600",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Stats.BytesSent",
-      "value": "176128",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Stats.ErrorsReceived",
-      "value": "0",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Stats.ErrorsSent",
-      "value": "0",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Stats.PacketsReceived",
-      "value": "1201",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Stats.PacketsSent",
-      "value": "59772",
-      "type": 0
-   },
-   {
-      "name": "Device.WiFi.MultiAP.APDevice.3.Radio.2.AP.2.AssociatedDevice.1.Stats.RetransCount",
-      "value": "721",
       "type": 0
    },
    {

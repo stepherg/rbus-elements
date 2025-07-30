@@ -1,852 +1,37 @@
-#include <rbus.h>
-#include <cJSON.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <signal.h>
-#include <time.h>
-#include <stdint.h>
+#include "rbus_elements.h"
 
-#ifdef __APPLE__
-#include <sys/sysctl.h>
-#include <IOKit/IOKitLib.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <mach/mach.h>
-#include <mach/vm_statistics.h>
-#else
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <errno.h>
-#include <limits.h>
-#endif
-
-#define MAX_NAME_LEN 256
-#define JSON_FILE "elements.json"
-#define MEMORY_CACHE_TIMEOUT 5
-#define MAX_REGISTERED_EVENTS 10
-
-typedef enum {
-   TYPE_STRING = 0,
-   TYPE_INT = 1,
-   TYPE_UINT = 2,
-   TYPE_BOOL = 3,
-   TYPE_DATETIME = 4,
-   TYPE_BASE64 = 5,
-   TYPE_LONG = 6,
-   TYPE_ULONG = 7,
-   TYPE_FLOAT = 8,
-   TYPE_DOUBLE = 9,
-   TYPE_BYTE = 10
-} ValueType;
+DataElement *g_internalDataElements = NULL;
+static int g_numElements = 0;
+int g_totalElements = 0;
+rbusHandle_t g_rbusHandle = NULL;
+static rbusDataElement_t *g_dataElements = NULL;
+static volatile sig_atomic_t g_running = 1;
+TableDef *g_tables = NULL;
+int g_num_tables = 0;
+InitialRowValue *g_initial_values = NULL;
+int g_num_initial = 0;
 
 typedef struct {
    char name[MAX_NAME_LEN];
-   rbusElementType_t elementType; // RBUS_ELEMENT_TYPE_PROPERTY, TABLE, EVENT, or METHOD
-   ValueType type; // Used for properties only
-   union {
-      char *strVal;          // TYPE_STRING, TYPE_DATETIME, TYPE_BASE64
-      int32_t intVal;        // TYPE_INT
-      uint32_t uintVal;      // TYPE_UINT
-      bool boolVal;          // TYPE_BOOL
-      int64_t longVal;       // TYPE_LONG
-      uint64_t ulongVal;     // TYPE_ULONG
-      float floatVal;        // TYPE_FLOAT
-      double doubleVal;      // TYPE_DOUBLE
-      uint8_t byteVal;       // TYPE_BYTE
-   } value;
-   rbusGetHandler_t getHandler;
-   rbusSetHandler_t setHandler;
-   rbusTableAddRowHandler_t tableAddRowHandler;
-   rbusTableRemoveRowHandler_t tableRemoveRowHandler;
-   rbusEventSubHandler_t eventSubHandler;
-   rbusMethodHandler_t methodHandler;
-} DataElement;
+   uint32_t max_inst;
+}TableMaxInst;
 
-// Memory cache for optimization
-typedef struct {
-   uint64_t total;  // Total memory in kB
-   uint64_t free;   // Free memory in kB
-   uint64_t used;   // Used memory in kB
-   time_t last_updated; // Last update timestamp
-} MemoryCache;
-
-static DataElement *g_internalDataElements = NULL;
-static int g_numElements = 0;
-static int g_totalElements = 0;
-static rbusHandle_t g_rbusHandle = NULL;
-static rbusDataElement_t *g_dataElements = NULL;
-static volatile sig_atomic_t g_running = 1;
-static MemoryCache g_mem_cache = {0};
+static char *get_parent_table(const char *table_wild);
+static char *get_parent_concrete(const char *c_table, uint32_t *p_inst);
+static void ensure_table(const char *table_wild);
+static int count_indices(const char *name);
 
 // Signal handler for SIGINT and SIGTERM
 static void signal_handler(int sig) {
    g_running = 0;
 }
 
-static rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char *eventName, rbusFilter_t filter, int32_t interval, bool *autoPublish);
-// Platform-specific implementation to retrieve the system serial number:
-// On macOS, fetches the hardware serial number; on other platforms, uses the MAC address as a fallback identifier.
-static rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   rbusValue_t value;
-   rbusValue_Init(&value);
-
-#ifdef __APPLE__
-   io_service_t platformExpert = IOServiceGetMatchingService(kIOMainPortDefault,
-      IOServiceMatching("IOPlatformExpertDevice"));
-   if (!platformExpert) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   CFStringRef serialNumber = IORegistryEntryCreateCFProperty(platformExpert,
-      CFSTR(kIOPlatformSerialNumberKey),
-      kCFAllocatorDefault,
-      0);
-
-   IOObjectRelease(platformExpert);
-
-   if (!serialNumber) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   CFIndex length = CFStringGetLength(serialNumber);
-   CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
-
-   if (maxSize <= 0 || maxSize > 4096) { // 4096 is an arbitrary upper bound for safety
-      CFRelease(serialNumber);
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   char *serial = (char *)malloc(maxSize);
-   if (!serial) {
-      CFRelease(serialNumber);
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   if (!CFStringGetCString(serialNumber, serial, maxSize, kCFStringEncodingUTF8)) {
-      free(serial);
-      CFRelease(serialNumber);
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   CFRelease(serialNumber);
-   rbusValue_SetString(value, serial);
-   free(serial);
-
-#else
-   // On non-Apple platforms, use the MAC address of the first non-loopback interface as a fallback "serial number".
-   // This is not a true serial number, but serves as a unique identifier if no hardware serial is available.
-   int sock = socket(AF_INET, SOCK_DGRAM, 0);
-   if (sock < 0) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   struct ifreq ifr;
-   struct ifconf ifc;
-   char buf[1024];
-   char mac_str[18] = {0};
-   bool found = false;
-
-   ifc.ifc_len = sizeof(buf);
-   ifc.ifc_buf = buf;
-   if (ioctl(sock, SIOCGIFCONF, &ifc) < 0) {
-      close(sock);
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   struct ifreq *it = ifc.ifc_req;
-   const struct ifreq *const end = it + (ifc.ifc_len / sizeof(struct ifreq));
-
-   for (; it != end; ++it) {
-      strcpy(ifr.ifr_name, it->ifr_name);
-      if (ioctl(sock, SIOCGIFFLAGS, &ifr) == 0) {
-         // Skip loopback interfaces
-         if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
-            if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
-               unsigned char *mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
-               int ret = snprintf(mac_str, sizeof(mac_str),
-                  "%02X%02X%02X%02X%02X%02X",
-                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-               if (ret < 0 || ret >= (int)sizeof(mac_str)) {
-                  close(sock);
-                  rbusValue_Release(value);
-                  return RBUS_ERROR_BUS_ERROR;
-               }
-               found = true;
-               break;
-            }
-         }
-      }
-   }
-
-   close(sock);
-
-   if (!found) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   rbusValue_SetString(value, mac_str);
-#endif
-
-   rbusProperty_SetValue(property, value);
-   rbusValue_Release(value);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t get_system_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   rbusValue_t value;
-   rbusValue_Init(&value);
-
-   struct timeval tv;
-   if (gettimeofday(&tv, NULL) != 0) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   char time_str[32];
-   int ret = snprintf(time_str, sizeof(time_str), "%ld.%06ld", (long)tv.tv_sec, (long)tv.tv_usec);
-   if (ret < 0 || ret >= (int)sizeof(time_str)) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   rbusValue_SetString(value, time_str);
-   rbusProperty_SetValue(property, value);
-   rbusValue_Release(value);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t get_system_uptime(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   rbusValue_t value;
-   rbusValue_Init(&value);
-
-#ifdef __APPLE__
-   int mib[2] = {CTL_KERN, KERN_BOOTTIME};
-   struct timeval boottime;
-   size_t size = sizeof(boottime);
-
-   if (sysctl(mib, 2, &boottime, &size, NULL, 0) == -1) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   struct timeval now;
-   if (gettimeofday(&now, NULL) != 0) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   uint32_t uptime_seconds = (now.tv_sec - boottime.tv_sec);
-#else
-   FILE *fp = fopen("/proc/uptime", "r");
-   if (!fp) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   uint32_t uptime_seconds;
-
-   // Read the first value from /proc/uptime (seconds since boot)
-   if (fscanf(fp, "%u", &uptime_seconds) != 1) {
-      fclose(fp);
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   fclose(fp);
-#endif
-
-   // Set the rbus value to the formatted uptime string
-   rbusValue_SetUInt32(value, uptime_seconds);
-   rbusProperty_SetValue(property, value);
-   rbusValue_Release(value);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   rbusValue_t value;
-   rbusValue_Init(&value);
-
-#ifdef __APPLE__
-   io_iterator_t iterator;
-   kern_return_t kr = IOServiceGetMatchingServices(kIOMainPortDefault,
-      IOServiceMatching("IOEthernetInterface"),
-      &iterator);
-   if (kr != KERN_SUCCESS) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   char mac_str[18] = {0};
-   io_service_t service;
-   bool found = false;
-
-   while ((service = IOIteratorNext(iterator)) != 0) {
-      // Check if this is a non-loopback interface
-      CFStringRef bsdName = IORegistryEntryCreateCFProperty(service,
-         CFSTR("BSD Name"),
-         kCFAllocatorDefault,
-         0);
-      if (bsdName) {
-         char bsd_name[32];
-         bool bsdNameValid = CFStringGetCString(bsdName, bsd_name, sizeof(bsd_name), kCFStringEncodingUTF8);
-         if (bsdNameValid && strncmp(bsd_name, "lo", 2) != 0) {
-            io_service_t parent;
-            kr = IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent);
-            if (kr == KERN_SUCCESS) {
-               CFDataRef macData = IORegistryEntryCreateCFProperty(parent,
-                  CFSTR("IOMACAddress"),
-                  kCFAllocatorDefault,
-                  0);
-               if (macData) {
-                  const UInt8 *bytes = CFDataGetBytePtr(macData);
-                  int ret = snprintf(mac_str, sizeof(mac_str),
-                     "%02x:%02x:%02x:%02x:%02x:%02x",
-                     bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
-                  if (ret < 0 || ret >= (int)sizeof(mac_str)) {
-                     CFRelease(macData);
-                     IOObjectRelease(parent);
-                     CFRelease(bsdName);
-                     IOObjectRelease(service);
-                     IOObjectRelease(iterator);
-                     rbusValue_Release(value);
-                     return RBUS_ERROR_BUS_ERROR;
-                  }
-                  CFRelease(macData);
-                  found = true;
-                  IOObjectRelease(parent);
-               } else {
-                  IOObjectRelease(parent);
-               }
-            }
-         }
-         CFRelease(bsdName);
-      }
-      IOObjectRelease(service);
-      if (found) break;
-   }
-   IOObjectRelease(iterator);
-
-   if (!found) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-#else
-   int sock = socket(AF_INET, SOCK_DGRAM, 0);
-   if (sock < 0) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   struct ifreq ifr;
-   struct ifconf ifc;
-   char buf[1024];
-   char mac_str[18] = {0};
-   bool found = false;
-
-   ifc.ifc_len = sizeof(buf);
-   ifc.ifc_buf = buf;
-   if (ioctl(sock, SIOCGIFCONF, &ifc) < 0) {
-      close(sock);
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   struct ifreq *it = ifc.ifc_req;
-   const struct ifreq *const end = it + (ifc.ifc_len / sizeof(struct ifreq));
-
-   for (; it != end; ++it) {
-      strcpy(ifr.ifr_name, it->ifr_name);
-      if (ioctl(sock, SIOCGIFFLAGS, &ifr) == 0) {
-         // Skip loopback interfaces
-         if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
-            if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
-               unsigned char *mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
-               int ret = snprintf(mac_str, sizeof(mac_str),
-                  "%02x:%02x:%02x:%02x:%02x:%02x",
-                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-               if (ret < 0 || ret >= (int)sizeof(mac_str)) {
-                  close(sock);
-                  rbusValue_Release(value);
-                  return RBUS_ERROR_BUS_ERROR;
-               }
-               found = true;
-               break;
-            }
-         }
-      }
-   }
-
-   close(sock);
-
-   if (!found) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-#endif
-
-   rbusValue_SetString(value, mac_str);
-   rbusProperty_SetValue(property, value);
-   rbusValue_Release(value);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-// Helper function to update memory cache
-static bool update_memory_cache(void) {
-   static time_t last_check = 0;
-   time_t now = time(NULL);
-   if (now == last_check) {
-      return true;
-   }
-   if (g_mem_cache.last_updated + MEMORY_CACHE_TIMEOUT > now) {
-      last_check = now;
-      return true;
-   }
-
-#ifdef __APPLE__
-   int mib[2] = {CTL_HW, HW_MEMSIZE};
-   uint64_t total_mem;
-   size_t len = sizeof(total_mem);
-   if (sysctl(mib, 2, &total_mem, &len, NULL, 0) == -1) {
-      return false;
-   }
-
-   mach_port_t host_port = mach_host_self();
-   vm_size_t page_size;
-   vm_statistics64_data_t vm_stat;
-   unsigned int count = HOST_VM_INFO64_COUNT;
-
-   if (host_statistics64(host_port, HOST_VM_INFO64, (host_info64_t)&vm_stat, &count) != KERN_SUCCESS ||
-      host_page_size(host_port, &page_size) != KERN_SUCCESS) {
-      mach_port_deallocate(mach_task_self(), host_port);
-      return false;
-   }
-   mach_port_deallocate(mach_task_self(), host_port);
-
-   g_mem_cache.total = total_mem / 1024;
-   g_mem_cache.free = (vm_stat.free_count + vm_stat.inactive_count) * page_size / 1024;
-   g_mem_cache.used = (vm_stat.active_count + vm_stat.wire_count) * page_size / 1024;
-#else
-   FILE *fp = fopen("/proc/meminfo", "r");
-   if (!fp) {
-      return false;
-   }
-
-   char line[256];
-   unsigned long mem_total = 0, mem_free = 0, buffers = 0, cached = 0, sreclaimable = 0;
-   while (fgets(line, sizeof(line), fp)) {
-      if (sscanf(line, "MemTotal: %lu kB", &mem_total) == 1 ||
-         sscanf(line, "MemFree: %lu kB", &mem_free) == 1 ||
-         sscanf(line, "Buffers: %lu kB", &buffers) == 1 ||
-         sscanf(line, "Cached: %lu kB", &cached) == 1 ||
-         sscanf(line, "SReclaimable: %lu kB", &sreclaimable) == 1) {
-         continue;
-      }
-   }
-   fclose(fp);
-
-   if (mem_total == 0 || mem_free == 0) {
-      return false;
-   }
-   g_mem_cache.total = mem_total;
-   g_mem_cache.free = mem_free + buffers + cached + sreclaimable;
-   g_mem_cache.used = mem_total - g_mem_cache.free;
-#endif
-
-   g_mem_cache.last_updated = now;
-   last_check = now;
-   return true;
-}
-
-static rbusError_t get_memory_free(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   rbusValue_t value;
-   rbusValue_Init(&value);
-
-   if (!update_memory_cache()) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   rbusValue_SetUInt32(value, (unsigned int)g_mem_cache.free);
-   rbusProperty_SetValue(property, value);
-   rbusValue_Release(value);
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t get_memory_used(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   rbusValue_t value;
-   rbusValue_Init(&value);
-
-   if (!update_memory_cache()) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   rbusValue_SetUInt32(value, (unsigned int)g_mem_cache.used);
-   rbusProperty_SetValue(property, value);
-   rbusValue_Release(value);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t get_memory_total(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   rbusValue_t value;
-   rbusValue_Init(&value);
-
-   if (!update_memory_cache()) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   rbusValue_SetUInt32(value, (unsigned int)g_mem_cache.total);
-   rbusProperty_SetValue(property, value);
-   rbusValue_Release(value);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t get_local_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   rbusValue_t value;
-   rbusValue_Init(&value);
-
-   // Get current time
-   time_t rawtime;
-   if (time(&rawtime) == (time_t)-1) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   // Convert to local time
-   struct tm time_struct;
-   struct tm *timeinfo = localtime_r(&rawtime, &time_struct);
-   if (!timeinfo) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   // Format time as YYYY-MM-DDThh:mm:ss (e.g., 2024-02-07T23:52:32)
-   char time_str[20];
-   if (strftime(time_str, sizeof(time_str), "%Y-%m-%dT%H:%M:%S", timeinfo) == 0) {
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
-   }
-
-   rbusValue_SetString(value, time_str);
-   rbusProperty_SetValue(property, value);
-   rbusValue_Release(value);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static uint32_t g_nextInstance = 1;
-typedef struct {
-   char name[MAX_NAME_LEN];
-   uint32_t instNum;
-   char alias[MAX_NAME_LEN];
-} TableRow;
-
-static TableRow *g_tableRows = NULL;
-static int g_numTableRows = 0;
-
-static rbusError_t table_add_row(rbusHandle_t handle, const char *tableName, const char *aliasName, uint32_t *instNum) {
-   if (!tableName || !instNum) {
-      return RBUS_ERROR_INVALID_INPUT;
-   }
-
-   g_tableRows = realloc(g_tableRows, (g_numTableRows + 1) * sizeof(TableRow));
-   if (!g_tableRows) {
-      return RBUS_ERROR_OUT_OF_RESOURCES;
-   }
-
-   TableRow *row = &g_tableRows[g_numTableRows];
-   snprintf(row->name, MAX_NAME_LEN, "%s.%u", tableName, g_nextInstance);
-   row->instNum = g_nextInstance++;
-   strncpy(row->alias, aliasName ? aliasName : "", MAX_NAME_LEN - 1);
-   row->alias[MAX_NAME_LEN - 1] = '\0';
-   *instNum = row->instNum;
-   g_numTableRows++;
-
-   rbusEvent_t event = {.name = tableName, .type = RBUS_EVENT_OBJECT_CREATED, .data = NULL};
-   rbusError_t rc = rbusEvent_Publish(handle, &event);
-   if (rc != RBUS_ERROR_SUCCESS) {
-      fprintf(stderr, "Failed to publish table add event for %s: %d\n", tableName, rc);
-   }
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
-   if (!rowName) {
-      return RBUS_ERROR_INVALID_INPUT;
-   }
-
-   for (int i = 0; i < g_numTableRows; i++) {
-      if (strcmp(g_tableRows[i].name, rowName) == 0 || (g_tableRows[i].alias[0] && strcmp(g_tableRows[i].alias, rowName) == 0)) {
-         memmove(&g_tableRows[i], &g_tableRows[i + 1], (g_numTableRows - i - 1) * sizeof(TableRow));
-         g_numTableRows--;
-         g_tableRows = realloc(g_tableRows, g_numTableRows * sizeof(TableRow));
-
-         char tableName[MAX_NAME_LEN];
-         strncpy(tableName, rowName, MAX_NAME_LEN - 1);
-         tableName[MAX_NAME_LEN - 1] = '\0';
-         char *dot = strrchr(tableName, '.');
-         if (dot && dot[1] != '\0') {
-            *dot = '\0';
-         }
-
-         rbusEvent_t event = {.name = tableName, .type = RBUS_EVENT_OBJECT_DELETED, .data = NULL};
-         rbusError_t rc = rbusEvent_Publish(handle, &event);
-         if (rc != RBUS_ERROR_SUCCESS) {
-            fprintf(stderr, "Failed to publish table remove event for %s: %d\n", tableName, rc);
-         }
-         return RBUS_ERROR_SUCCESS;
-      }
-   }
-   return RBUS_ERROR_INVALID_INPUT;
-}
-
-static rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
-   rbusValue_t delayVal = rbusObject_GetValue(inParams, "delay");
-   int32_t delay = delayVal ? rbusValue_GetInt32(delayVal) : 0;
-
-   if (delay < 0) {
-      rbusObject_SetValue(outParams, "error", rbusValue_InitString("Invalid delay value"));
-      return RBUS_ERROR_INVALID_INPUT;
-   }
-
-   rbusValue_t resultVal;
-   rbusValue_Init(&resultVal);
-   rbusValue_SetString(resultVal, "Reboot scheduled");
-   rbusObject_SetValue(outParams, "status", resultVal);
-   rbusValue_Release(resultVal);
-
-   if (delay > 0) {
-      sleep(delay);
-   }
-
-   // Simulate reboot (in a real system, this would call system("reboot"))
-   printf("System reboot initiated after %d seconds\n", delay);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t get_system_info_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
-   rbusValue_t serialVal, timeVal, uptimeVal;
-   rbusValue_Init(&serialVal);
-   rbusValue_Init(&timeVal);
-   rbusValue_Init(&uptimeVal);
-
-   rbusProperty_t serialProp = rbusProperty_Init(NULL, "Device.DeviceInfo.SerialNumber", NULL);
-   rbusProperty_t timeProp = rbusProperty_Init(NULL, "Device.DeviceInfo.X_RDKCENTRAL-COM_SystemTime", NULL);
-   rbusProperty_t uptimeProp = rbusProperty_Init(NULL, "Device.DeviceInfo.UpTime", NULL);
-
-   rbusGetHandlerOptions_t opts = {.context = NULL, .requestingComponent = NULL};
-   get_system_serial_number(handle, serialProp, &opts);
-   get_system_time(handle, timeProp, &opts);
-   get_system_uptime(handle, uptimeProp, &opts);
-
-   rbusObject_SetValue(outParams, "SerialNumber", rbusProperty_GetValue(serialProp));
-   rbusObject_SetValue(outParams, "SystemTime", rbusProperty_GetValue(timeProp));
-   rbusObject_SetValue(outParams, "UpTime", rbusProperty_GetValue(uptimeProp));
-
-   rbusProperty_Release(serialProp);
-   rbusProperty_Release(timeProp);
-   rbusProperty_Release(uptimeProp);
-   rbusValue_Release(serialVal);
-   rbusValue_Release(timeVal);
-   rbusValue_Release(uptimeVal);
-
-   return RBUS_ERROR_SUCCESS;
-}
-
-static rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
-   // Validate required parameters
-   rbusValue_t msgTypeVal = rbusObject_GetValue(inParams, "msg_type");
-   rbusValue_t sourceVal = rbusObject_GetValue(inParams, "source");
-   rbusValue_t destVal = rbusObject_GetValue(inParams, "dest");
-
-   // Set default msg_type to 4 if not provided
-   const char *msg_type_str = "4";
-   if (msgTypeVal) {
-      if (rbusValue_GetType(msgTypeVal) == RBUS_INT32) {
-         if (rbusValue_GetInt32(msgTypeVal) != 4) {
-            rbusValue_t errorVal;
-            rbusValue_Init(&errorVal);
-            rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
-            rbusObject_SetValue(outParams, "error", errorVal);
-            rbusValue_Release(errorVal);
-            return RBUS_ERROR_INVALID_INPUT;
-         }
-      } else if (rbusValue_GetType(msgTypeVal) == RBUS_STRING) {
-         if (strcmp(rbusValue_GetString(msgTypeVal, NULL), "event") != 0) {
-            rbusValue_t errorVal;
-            rbusValue_Init(&errorVal);
-            rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
-            rbusObject_SetValue(outParams, "error", errorVal);
-            rbusValue_Release(errorVal);
-            return RBUS_ERROR_INVALID_INPUT;
-         }
-         msg_type_str = "event";
-      } else {
-         rbusValue_t errorVal;
-         rbusValue_Init(&errorVal);
-         rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
-         rbusObject_SetValue(outParams, "error", errorVal);
-         rbusValue_Release(errorVal);
-         return RBUS_ERROR_INVALID_INPUT;
-      }
-   }
-
-   if (!sourceVal || rbusValue_GetType(sourceVal) != RBUS_STRING || !rbusValue_GetString(sourceVal, NULL)) {
-      rbusValue_t errorVal;
-      rbusValue_Init(&errorVal);
-      rbusValue_SetString(errorVal, "source must be a non-empty string");
-      rbusObject_SetValue(outParams, "error", errorVal);
-      rbusValue_Release(errorVal);
-      return RBUS_ERROR_INVALID_INPUT;
-   }
-
-   if (!destVal || rbusValue_GetType(destVal) != RBUS_STRING || !rbusValue_GetString(destVal, NULL)) {
-      rbusValue_t errorVal;
-      rbusValue_Init(&errorVal);
-      rbusValue_SetString(errorVal, "dest must be a non-empty string");
-      rbusObject_SetValue(outParams, "error", errorVal);
-      rbusValue_Release(errorVal);
-      return RBUS_ERROR_INVALID_INPUT;
-   }
-
-   // Extract optional parameters
-   const char *source = rbusValue_GetString(sourceVal, NULL);
-   const char *dest = rbusValue_GetString(destVal, NULL);
-   const char *content_type = NULL;
-   rbusValue_t contentTypeVal = rbusObject_GetValue(inParams, "content_type");
-   if (contentTypeVal && rbusValue_GetType(contentTypeVal) == RBUS_STRING) {
-      content_type = rbusValue_GetString(contentTypeVal, NULL);
-   }
-
-   rbusValue_t partnerIdsVal = rbusObject_GetValue(inParams, "partner_ids");
-   rbusValue_t headersVal = rbusObject_GetValue(inParams, "headers");
-   rbusValue_t metadataVal = rbusObject_GetValue(inParams, "metadata");
-   rbusValue_t payloadVal = rbusObject_GetValue(inParams, "payload");
-   rbusValue_t sessionIdVal = rbusObject_GetValue(inParams, "session_id");
-   rbusValue_t transactionUuidVal = rbusObject_GetValue(inParams, "transaction_uuid");
-   rbusValue_t qosVal = rbusObject_GetValue(inParams, "qos");
-   rbusValue_t rdrVal = rbusObject_GetValue(inParams, "rdr");
-
-   // Log the event (in a real implementation, this would forward to Xmidt)
-   printf("Simple Event Received:\n");
-   printf("  Method: %s\n", methodName);
-   printf("  msg_type: %s\n", msg_type_str);
-   printf("  source: %s\n", source);
-   printf("  dest: %s\n", dest);
-   if (content_type) printf("  content_type: %s\n", content_type);
-
-   if (partnerIdsVal && rbusValue_GetType(partnerIdsVal) == RBUS_OBJECT) {
-      rbusObject_t partnerIdsObj = rbusValue_GetObject(partnerIdsVal);
-      if (partnerIdsObj) {
-         printf("  partner_ids: [");
-         rbusProperty_t prop = rbusObject_GetProperties(partnerIdsObj);
-         bool first = true;
-         while (prop) {
-            rbusValue_t val = rbusProperty_GetValue(prop);
-            if (val && rbusValue_GetType(val) == RBUS_STRING) {
-               printf("%s%s", first ? "" : ", ", rbusValue_GetString(val, NULL));
-               first = false;
-            }
-            prop = rbusProperty_GetNext(prop);
-         }
-         printf("]\n");
-      }
-   }
-
-   if (headersVal && rbusValue_GetType(headersVal) == RBUS_OBJECT) {
-      rbusObject_t headersObj = rbusValue_GetObject(headersVal);
-      if (headersObj) {
-         printf("  headers: [");
-         rbusProperty_t prop = rbusObject_GetProperties(headersObj);
-         bool first = true;
-         while (prop) {
-            rbusValue_t val = rbusProperty_GetValue(prop);
-            if (val && rbusValue_GetType(val) == RBUS_STRING) {
-               printf("%s%s", first ? "" : ", ", rbusValue_GetString(val, NULL));
-               first = false;
-            }
-            prop = rbusProperty_GetNext(prop);
-         }
-         printf("]\n");
-      }
-   }
-
-   if (metadataVal && rbusValue_GetType(metadataVal) == RBUS_OBJECT) {
-      rbusObject_t metadataObj = rbusValue_GetObject(metadataVal);
-      if (metadataObj) {
-         printf("  metadata: {");
-         rbusProperty_t prop = rbusObject_GetProperties(metadataObj);
-         bool first = true;
-         while (prop) {
-            const char *key = rbusProperty_GetName(prop);
-            rbusValue_t val = rbusProperty_GetValue(prop);
-            if (key && val && rbusValue_GetType(val) == RBUS_STRING) {
-               printf("%s%s: %s", first ? "" : ", ", key, rbusValue_GetString(val, NULL));
-               first = false;
-            }
-            prop = rbusProperty_GetNext(prop);
-         }
-         printf("}\n");
-      }
-   }
-
-   if (payloadVal && rbusValue_GetType(payloadVal) == RBUS_STRING) {
-      printf("  payload: %s\n", rbusValue_GetString(payloadVal, NULL));
-   }
-   if (sessionIdVal && rbusValue_GetType(sessionIdVal) == RBUS_STRING) {
-      printf("  session_id: %s\n", rbusValue_GetString(sessionIdVal, NULL));
-   }
-   if (transactionUuidVal && rbusValue_GetType(transactionUuidVal) == RBUS_STRING) {
-      printf("  transaction_uuid: %s\n", rbusValue_GetString(transactionUuidVal, NULL));
-   }
-   if (qosVal && rbusValue_GetType(qosVal) == RBUS_INT32) {
-      int32_t qos = rbusValue_GetInt32(qosVal);
-      if (qos >= 0 && qos <= 99) {
-         printf("  qos: %d\n", qos);
-      } else {
-         printf("  qos: %d (invalid, must be 0-99)\n", qos);
-      }
-   }
-   if (rdrVal && rbusValue_GetType(rdrVal) == RBUS_INT32) {
-      printf("  rdr: %d\n", rbusValue_GetInt32(rdrVal));
-   }
-
-   // Set response
-   rbusValue_t resultVal;
-   rbusValue_Init(&resultVal);
-   rbusValue_SetString(resultVal, "Event received");
-   rbusObject_SetValue(outParams, "status", resultVal);
-   rbusValue_Release(resultVal);
-
-   // Publish an RBUS event to simulate Xmidt event forwarding
-   rbusEvent_t event = {.name = dest, .type = RBUS_EVENT_GENERAL, .data = inParams};
-   rbusError_t rc = rbusEvent_Publish(handle, &event);
-   if (rc != RBUS_ERROR_SUCCESS) {
-      fprintf(stderr, "Failed to publish event to %s: %d\n", dest, rc);
-   }
-
-   return RBUS_ERROR_SUCCESS;
+static bool is_digit_str(const char *str) {
+   if (*str == '\0') return false;
+   char *end;
+   errno = 0;
+   long val = strtol(str, &end, 10);
+   return (errno == 0 && *end == '\0' && val > 0);
 }
 
 static const DataElement gDataElements[] = {
@@ -875,7 +60,7 @@ static const DataElement gDataElements[] = {
       .setHandler = NULL,
    },
    {
-      .name = "Device.DeviceInfo.X_COMCAST-COM_CM_MAC",
+      .name = "Device.DeviceInfo.X_COMCAST-COM_WAN_MAC",
       .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
       .type = TYPE_STRING,
       .value.strVal = "unknown",
@@ -907,6 +92,14 @@ static const DataElement gDataElements[] = {
       .setHandler = NULL,
    },
    {
+      .name = "Device.DeviceInfo.ManufacturerOUI",
+      .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
+      .type = TYPE_STRING,
+      .value.strVal = "unknown",
+      .getHandler = get_manufacturer_oui,
+      .setHandler = NULL,
+   },
+   {
       .name = "Device.Time.CurrentLocalTime",
       .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
       .type = TYPE_DATETIME,
@@ -915,27 +108,27 @@ static const DataElement gDataElements[] = {
       .setHandler = NULL,
    },
    {
-      .name = "Device.InterfaceTable.",
-      .elementType = RBUS_ELEMENT_TYPE_TABLE,
-      .type = TYPE_STRING, // Not used for tables, but required for struct compatibility
-      .value.strVal = "",
-      .tableAddRowHandler = table_add_row,
-      .tableRemoveRowHandler = table_remove_row,
-      .eventSubHandler = NULL,
-   },
-   {
       .name = "Device.SystemStatusChanged!",
       .elementType = RBUS_ELEMENT_TYPE_EVENT,
       .type = TYPE_STRING, // Not used for events
       .value.strVal = "",
       .eventSubHandler = NULL,
-   },
+   }
+};
+
+static const DataElement gMethodElements[] = {
    {
       .name = "Device.Reboot()",
       .elementType = RBUS_ELEMENT_TYPE_METHOD,
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = system_reboot_method,
+      .methodArgs = {
+         .numInputArgs = 1,
+         .inputArgs = (char *[]){"Delay"},
+         .numOutputArgs = 1,
+         .outputArgs = (char *[]){"Status"}
+      }
    },
    {
       .name = "Device.GetSystemInfo()",
@@ -943,6 +136,12 @@ static const DataElement gDataElements[] = {
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = get_system_info_method,
+      .methodArgs = {
+         .numInputArgs = 0,
+         .inputArgs = NULL,
+         .numOutputArgs = 3,
+         .outputArgs = (char *[]){"SerialNumber", "SystemTime", "UpTime"}
+      }
    },
    {
       .name = "Device.X_RDK_Xmidt.SendData()",
@@ -950,61 +149,97 @@ static const DataElement gDataElements[] = {
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = device_x_rdk_xmidt_send_data,
+      .methodArgs = {
+         .numInputArgs = 2,
+         .inputArgs = (char *[]){"Msg_Type", "Source", "Dest"},
+         .numOutputArgs = 1,
+         .outputArgs = (char *[]){"OutParams"}
+      }
    }
 };
 
-// Callback for handling value change events
-void valueChangeHandler(rbusHandle_t handle, rbusEvent_t const *event, rbusEventSubscription_t *subscription) {
-   rbusValue_t newValue = rbusObject_GetValue(event->data, "value");
-   if (!newValue) {
-      printf("Value change event for %s: No new value provided\n", event->name);
-      return;
+char *create_wildcard(const char *name) {
+   size_t len = strlen(name);
+   char *result = malloc(len * 2 + 1);  // Safe upper bound
+   if (!result) return NULL;
+   result[0] = '\0';
+
+   bool trailing_dot = (name[len - 1] == '.');
+   char *temp = strdup(name);
+   if (!temp) {
+      free(result);
+      return NULL;
    }
 
-   switch (rbusValue_GetType(newValue)) {
-   case RBUS_STRING: {
-      char *str = rbusValue_ToString(newValue, NULL, 0);
-      printf("Value changed for %s: %s\n", event->name, str);
-      free(str);
-      break;
+   char *token = strtok(temp, ".");
+   bool first = true;
+   while (token) {
+      if (!first) strcat(result, ".");
+      if (is_digit_str(token)) {
+         strcat(result, "{i}");
+      } else {
+         strcat(result, token);
+      }
+      first = false;
+      token = strtok(NULL, ".");
    }
-   case RBUS_INT32:
-      printf("Value changed for %s: %d\n", event->name, rbusValue_GetInt32(newValue));
-      break;
-   case RBUS_UINT32:
-      printf("Value changed for %s: %u\n", event->name, rbusValue_GetUInt32(newValue));
-      break;
-   case RBUS_BOOLEAN:
-      printf("Value changed for %s: %s\n", event->name, rbusValue_GetBoolean(newValue) ? "true" : "false");
-      break;
-   case RBUS_INT64:
-      printf("Value changed for %s: %lld\n", event->name, (long long)rbusValue_GetInt64(newValue));
-      break;
-   case RBUS_UINT64:
-      printf("Value changed for %s: %llu\n", event->name, (unsigned long long)rbusValue_GetUInt64(newValue));
-      break;
-   case RBUS_SINGLE:
-      printf("Value changed for %s: %f\n", event->name, rbusValue_GetSingle(newValue));
-      break;
-   case RBUS_DOUBLE:
-      printf("Value changed for %s: %lf\n", event->name, rbusValue_GetDouble(newValue));
-      break;
-   case RBUS_BYTE:
-      printf("Value changed for %s: %u\n", event->name, rbusValue_GetByte(newValue));
-      break;
-   default:
-      printf("Value changed for %s: Unsupported type\n", event->name);
-      break;
-   }
+   if (trailing_dot) strcat(result, ".");
+   free(temp);
+   return result;
 }
 
-static rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char *eventName, rbusFilter_t filter, int32_t interval, bool *autoPublish) {
-   printf("Event subscription handler called for %s, action: %s\n", eventName,
-      action == RBUS_EVENT_ACTION_SUBSCRIBE ? "subscribe" : "unsubscribe");
-   if (autoPublish) {
-      *autoPublish = false; // Provider handles event publishing
+char *get_parent_table(const char *table_wild) {
+   const char *pattern = ".{i}.";
+   const char *last = NULL;
+   const char *pos = table_wild;
+   while ((pos = strstr(pos, pattern)) != NULL) {
+      last = pos;
+      pos += 1;
    }
-   return RBUS_ERROR_SUCCESS;
+   if (!last) return NULL;
+   size_t len = last - table_wild + 1;
+   char *parent = malloc(len + 1);
+   if (!parent) return NULL;
+   strncpy(parent, table_wild, len);
+   parent[len] = '\0';
+   return parent;
+}
+
+char *get_parent_concrete(const char *c_table, uint32_t *p_inst) {
+   size_t len = strlen(c_table);
+   if (len < 2 || c_table[len - 1] != '.') return NULL;
+   char *fake_prop = strdup(c_table);
+   if (!fake_prop) return NULL;
+   fake_prop[len - 1] = '\0';  // Remove trailing '.'
+   char *dummy_prop = NULL;
+   uint32_t dummy_inst = 0;
+   char *parent_tbl = get_table_name(fake_prop, &dummy_inst, &dummy_prop);
+   free(fake_prop);
+   if (!parent_tbl) return NULL;
+   *p_inst = dummy_inst;
+   free(dummy_prop);
+   return parent_tbl;
+}
+
+int count_indices(const char *name) {
+   int count = 0;
+   char *d = strdup(name);
+   if (!d) return 0;
+   char *token = strtok(d, ".");
+   while (token) {
+      if (is_digit_str(token)) count++;
+      token = strtok(NULL, ".");
+   }
+   free(d);
+   return count;
+}
+
+static int compare_tables(const void *a, const void *b) {
+   const TableMaxInst *ta = (const TableMaxInst *)a;
+   const TableMaxInst *tb = (const TableMaxInst *)b;
+   int da = count_indices(ta->name);
+   int db = count_indices(tb->name);
+   return da - db;
 }
 
 bool loadDataElementsFromJson(const char *json_path) {
@@ -1040,37 +275,24 @@ bool loadDataElementsFromJson(const char *json_path) {
       return false;
    }
 
-   g_numElements = cJSON_GetArraySize(root);
-   if (g_numElements == 0) {
+   int json_num = cJSON_GetArraySize(root);
+   if (json_num == 0) {
       fprintf(stderr, "No data models found in JSON\n");
       cJSON_Delete(root);
       return false;
    }
 
-   size_t static_elements = sizeof(gDataElements) / sizeof(DataElement);
-   if (g_numElements > INT_MAX - static_elements) {
-      fprintf(stderr, "Too many elements, potential integer overflow\n");
-      cJSON_Delete(root);
-      return false;
-   }
-   g_totalElements = g_numElements + static_elements;
+   g_internalDataElements = NULL;
+   g_numElements = 0;
 
-   g_internalDataElements = (DataElement *)malloc(g_totalElements * sizeof(DataElement));
-   if (!g_internalDataElements) {
-      fprintf(stderr, "Failed to allocate memory for data models\n");
-      cJSON_Delete(root);
-      return false;
-   }
+   InitialRowValue *initial_values = NULL;
+   int num_initial = 0;
 
-   int i = 0;
-   for (i = 0; i < g_numElements; i++) {
+   for (int i = 0; i < json_num; i++) {
       cJSON *item = cJSON_GetArrayItem(root, i);
       if (!cJSON_IsObject(item)) {
          fprintf(stderr, "Item %d is not an object\n", i);
-         free(g_internalDataElements);
-         g_internalDataElements = NULL;
-         cJSON_Delete(root);
-         return false;
+         goto load_fail;
       }
 
       cJSON *name_obj = cJSON_GetObjectItem(item, "name");
@@ -1078,16 +300,19 @@ bool loadDataElementsFromJson(const char *json_path) {
       cJSON *type_obj = cJSON_GetObjectItem(item, "type");
       cJSON *value_obj = cJSON_GetObjectItem(item, "value");
 
-      if (!cJSON_IsString(name_obj) || !cJSON_IsString(element_type_obj)) {
-         fprintf(stderr, "Invalid name or elementType for item %d\n", i);
-         free(g_internalDataElements);
-         g_internalDataElements = NULL;
-         cJSON_Delete(root);
-         return false;
+      if (!cJSON_IsString(name_obj)) {
+         fprintf(stderr, "Invalid name for item %d\n", i);
+         goto load_fail;
+      }
+
+      const char *element_type_str;
+      if (element_type_obj && cJSON_IsString(element_type_obj)) {
+         element_type_str = cJSON_GetStringValue(element_type_obj);
+      } else {
+         element_type_str = "property";
       }
 
       const char *name = cJSON_GetStringValue(name_obj);
-      const char *element_type_str = cJSON_GetStringValue(element_type_obj);
       rbusElementType_t element_type;
 
       if (strcmp(element_type_str, "property") == 0) {
@@ -1100,275 +325,354 @@ bool loadDataElementsFromJson(const char *json_path) {
          element_type = RBUS_ELEMENT_TYPE_METHOD;
       } else {
          fprintf(stderr, "Invalid elementType '%s' for item %d\n", element_type_str, i);
-         free(g_internalDataElements);
-         g_internalDataElements = NULL;
-         cJSON_Delete(root);
-         return false;
+         goto load_fail;
       }
 
-      strncpy(g_internalDataElements[i].name, name, MAX_NAME_LEN - 1);
-      g_internalDataElements[i].name[MAX_NAME_LEN - 1] = '\0';
-      g_internalDataElements[i].elementType = element_type;
-      g_internalDataElements[i].getHandler = NULL;
-      g_internalDataElements[i].setHandler = NULL;
-      g_internalDataElements[i].tableAddRowHandler = NULL;
-      g_internalDataElements[i].tableRemoveRowHandler = NULL;
-      g_internalDataElements[i].eventSubHandler = NULL;
-      g_internalDataElements[i].methodHandler = NULL;
+      if (element_type == RBUS_ELEMENT_TYPE_PROPERTY) {
+         if (!cJSON_IsNumber(type_obj) || cJSON_GetNumberValue(type_obj) < 0 || cJSON_GetNumberValue(type_obj) > TYPE_BYTE) {
+            fprintf(stderr, "Invalid type for item %d\n", i);
+            goto load_fail;
+         }
+
+         ValueType type = (ValueType)cJSON_GetNumberValue(type_obj);
+         uint32_t inst;
+         char *prop = NULL;
+         char *tbl = get_table_name(name, &inst, &prop);
+         if (tbl) {
+            // Row property
+            InitialRowValue iv;
+            strcpy(iv.table, tbl);
+            iv.inst = inst;
+            strcpy(iv.prop, prop);
+            iv.type = type;
+
+            switch (type) {
+            case TYPE_STRING:
+            case TYPE_DATETIME:
+            case TYPE_BASE64:
+               iv.value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
+               if (!iv.value.strVal) {
+                  fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
+                  free(tbl);
+                  free(prop);
+                  goto load_fail;
+               }
+               break;
+            case TYPE_INT:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= INT32_MIN && val <= INT32_MAX) {
+                     iv.value.intVal = (int32_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_INT at item %d\n", i);
+                     free(tbl);
+                     free(prop);
+                     goto load_fail;
+                  }
+               } else {
+                  iv.value.intVal = 0;
+               }
+               break;
+            case TYPE_UINT:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= 0 && val <= UINT32_MAX) {
+                     iv.value.uintVal = (uint32_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_UINT at item %d\n", i);
+                     free(tbl);
+                     free(prop);
+                     goto load_fail;
+                  }
+               } else {
+                  iv.value.uintVal = 0;
+               }
+               break;
+            case TYPE_BOOL:
+               iv.value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
+               break;
+            case TYPE_LONG:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= INT64_MIN && val <= INT64_MAX) {
+                     iv.value.longVal = (int64_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_LONG at item %d\n", i);
+                     free(tbl);
+                     free(prop);
+                     goto load_fail;
+                  }
+               } else {
+                  iv.value.longVal = 0;
+               }
+               break;
+            case TYPE_ULONG:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= 0 && val <= UINT64_MAX) {
+                     iv.value.ulongVal = (uint64_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_ULONG at item %d\n", i);
+                     free(tbl);
+                     free(prop);
+                     goto load_fail;
+                  }
+               } else {
+                  iv.value.ulongVal = 0;
+               }
+               break;
+            case TYPE_FLOAT:
+               iv.value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
+               break;
+            case TYPE_DOUBLE:
+               iv.value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
+               break;
+            case TYPE_BYTE:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= 0 && val <= UINT8_MAX) {
+                     iv.value.byteVal = (uint8_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_BYTE at item %d\n", i);
+                     free(tbl);
+                     free(prop);
+                     goto load_fail;
+                  }
+               } else {
+                  iv.value.byteVal = 0;
+               }
+               break;
+            }
+
+            // Add to initial_values
+            initial_values = realloc(initial_values, (num_initial + 1) * sizeof(InitialRowValue));
+            initial_values[num_initial] = iv;
+            num_initial++;
+
+            // Compute wildcards
+            char *table_wild = create_wildcard(tbl);
+            ensure_table(table_wild);
+            free(table_wild);
+
+            // Add wildcard property if not present
+            char *prop_wild = create_wildcard(name);
+            bool prop_exists = false;
+            for (int j = 0; j < g_numElements; j++) {
+               if (strcmp(g_internalDataElements[j].name, prop_wild) == 0 && g_internalDataElements[j].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
+                  prop_exists = true;
+                  break;
+               }
+            }
+            if (!prop_exists) {
+               g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
+               if (!g_internalDataElements) {
+                  fprintf(stderr, "Failed to allocate memory for data models\n");
+                  free(tbl);
+                  free(prop);
+                  free(prop_wild);
+                  goto load_fail;
+               }
+
+               DataElement *de = &g_internalDataElements[g_numElements];
+               strncpy(de->name, prop_wild, MAX_NAME_LEN - 1);
+               de->name[MAX_NAME_LEN - 1] = '\0';
+               de->elementType = RBUS_ELEMENT_TYPE_PROPERTY;
+               de->type = type;
+               memset(&de->value, 0, sizeof(de->value));
+               de->getHandler = getHandler;
+               de->setHandler = setHandler;
+               de->tableAddRowHandler = NULL;
+               de->tableRemoveRowHandler = NULL;
+               de->eventSubHandler = NULL;
+               de->methodHandler = NULL;
+               g_numElements++;
+            }
+            free(prop_wild);
+
+            free(tbl);
+            free(prop);
+            continue;
+         }
+      }
+
+      // Add non-row element
+      g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
+      if (!g_internalDataElements) {
+         fprintf(stderr, "Failed to allocate memory for data models\n");
+         goto load_fail;
+      }
+
+      DataElement *de = &g_internalDataElements[g_numElements];
+      strncpy(de->name, name, MAX_NAME_LEN - 1);
+      de->name[MAX_NAME_LEN - 1] = '\0';
+      de->elementType = element_type;
+      de->getHandler = NULL;
+      de->setHandler = NULL;
+      de->tableAddRowHandler = NULL;
+      de->tableRemoveRowHandler = NULL;
+      de->eventSubHandler = NULL;
+      de->methodHandler = NULL;
 
       if (element_type == RBUS_ELEMENT_TYPE_PROPERTY) {
-         if (!cJSON_IsNumber(type_obj) || type_obj->valuedouble < 0 || type_obj->valuedouble > TYPE_BYTE) {
-            fprintf(stderr, "Invalid type for item %d\n", i);
-            free(g_internalDataElements);
-            g_internalDataElements = NULL;
-            cJSON_Delete(root);
-            return false;
-         }
-         g_internalDataElements[i].type = (ValueType)cJSON_GetNumberValue(type_obj);
+         de->type = (ValueType)cJSON_GetNumberValue(type_obj);
 
-         switch (g_internalDataElements[i].type) {
+         switch (de->type) {
          case TYPE_STRING:
          case TYPE_DATETIME:
          case TYPE_BASE64:
-            g_internalDataElements[i].value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
-            if (!g_internalDataElements[i].value.strVal) {
+            de->value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
+            if (!de->value.strVal) {
                fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
-               free(g_internalDataElements);
-               g_internalDataElements = NULL;
-               cJSON_Delete(root);
-               return false;
+               goto load_fail;
             }
             break;
          case TYPE_INT:
             if (value_obj && cJSON_IsNumber(value_obj)) {
                double val = cJSON_GetNumberValue(value_obj);
                if (val >= INT32_MIN && val <= INT32_MAX) {
-                  g_internalDataElements[i].value.intVal = (int32_t)val;
+                  de->value.intVal = (int32_t)val;
                } else {
                   fprintf(stderr, "Value out of range for TYPE_INT at item %d\n", i);
-                  free(g_internalDataElements);
-                  g_internalDataElements = NULL;
-                  cJSON_Delete(root);
-                  return false;
+                  goto load_fail;
                }
             } else {
-               g_internalDataElements[i].value.intVal = 0;
+               de->value.intVal = 0;
             }
             break;
          case TYPE_UINT:
             if (value_obj && cJSON_IsNumber(value_obj)) {
                double val = cJSON_GetNumberValue(value_obj);
                if (val >= 0 && val <= UINT32_MAX) {
-                  g_internalDataElements[i].value.uintVal = (uint32_t)val;
+                  de->value.uintVal = (uint32_t)val;
                } else {
                   fprintf(stderr, "Value out of range for TYPE_UINT at item %d\n", i);
-                  free(g_internalDataElements);
-                  g_internalDataElements = NULL;
-                  cJSON_Delete(root);
-                  return false;
+                  goto load_fail;
                }
             } else {
-               g_internalDataElements[i].value.uintVal = 0;
+               de->value.uintVal = 0;
             }
             break;
          case TYPE_BOOL:
-            g_internalDataElements[i].value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
+            de->value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
             break;
          case TYPE_LONG:
             if (value_obj && cJSON_IsNumber(value_obj)) {
                double val = cJSON_GetNumberValue(value_obj);
                if (val >= INT64_MIN && val <= INT64_MAX) {
-                  g_internalDataElements[i].value.longVal = (int64_t)val;
+                  de->value.longVal = (int64_t)val;
                } else {
                   fprintf(stderr, "Value out of range for TYPE_LONG at item %d\n", i);
-                  free(g_internalDataElements);
-                  g_internalDataElements = NULL;
-                  cJSON_Delete(root);
-                  return false;
+                  goto load_fail;
                }
             } else {
-               g_internalDataElements[i].value.longVal = 0;
+               de->value.longVal = 0;
             }
             break;
          case TYPE_ULONG:
             if (value_obj && cJSON_IsNumber(value_obj)) {
                double val = cJSON_GetNumberValue(value_obj);
                if (val >= 0 && val <= UINT64_MAX) {
-                  g_internalDataElements[i].value.ulongVal = (uint64_t)val;
+                  de->value.ulongVal = (uint64_t)val;
                } else {
                   fprintf(stderr, "Value out of range for TYPE_ULONG at item %d\n", i);
-                  free(g_internalDataElements);
-                  g_internalDataElements = NULL;
-                  cJSON_Delete(root);
-                  return false;
+                  goto load_fail;
                }
             } else {
-               g_internalDataElements[i].value.ulongVal = 0;
+               de->value.ulongVal = 0;
             }
             break;
          case TYPE_FLOAT:
-            g_internalDataElements[i].value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
+            de->value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
             break;
          case TYPE_DOUBLE:
-            g_internalDataElements[i].value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
+            de->value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
             break;
          case TYPE_BYTE:
             if (value_obj && cJSON_IsNumber(value_obj)) {
                double val = cJSON_GetNumberValue(value_obj);
                if (val >= 0 && val <= UINT8_MAX) {
-                  g_internalDataElements[i].value.byteVal = (uint8_t)val;
+                  de->value.byteVal = (uint8_t)val;
                } else {
                   fprintf(stderr, "Value out of range for TYPE_BYTE at item %d\n", i);
-                  free(g_internalDataElements);
-                  g_internalDataElements = NULL;
-                  cJSON_Delete(root);
-                  return false;
+                  goto load_fail;
                }
             } else {
-               g_internalDataElements[i].value.byteVal = 0;
+               de->value.byteVal = 0;
             }
             break;
          }
       } else {
-         g_internalDataElements[i].type = TYPE_STRING;
-         g_internalDataElements[i].value.strVal = strdup("");
-         if (!g_internalDataElements[i].value.strVal) {
+         de->type = TYPE_STRING;
+         de->value.strVal = strdup("");
+         if (!de->value.strVal) {
             fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
-            free(g_internalDataElements);
-            g_internalDataElements = NULL;
-            cJSON_Delete(root);
-            return false;
+            goto load_fail;
          }
       }
+
+      g_numElements++;
    }
 
-   for (int j = 0; i < g_totalElements; i++, j++) {
-      strncpy(g_internalDataElements[i].name, gDataElements[j].name, MAX_NAME_LEN - 1);
-      g_internalDataElements[i].name[MAX_NAME_LEN - 1] = '\0';
-      g_internalDataElements[i].elementType = gDataElements[j].elementType;
-      g_internalDataElements[i].type = gDataElements[j].type;
-      g_internalDataElements[i].getHandler = gDataElements[j].getHandler;
-      g_internalDataElements[i].setHandler = gDataElements[j].setHandler;
-      g_internalDataElements[i].tableAddRowHandler = gDataElements[j].tableAddRowHandler;
-      g_internalDataElements[i].tableRemoveRowHandler = gDataElements[j].tableRemoveRowHandler;
-      g_internalDataElements[i].eventSubHandler = gDataElements[j].eventSubHandler;
-      g_internalDataElements[i].methodHandler = gDataElements[j].methodHandler;
+   // Add hard coded
+   int hard_num = sizeof(gDataElements) / sizeof(DataElement);
+   g_totalElements = g_numElements + hard_num;
+   g_internalDataElements = realloc(g_internalDataElements, g_totalElements * sizeof(DataElement));
+   if (!g_internalDataElements) {
+      fprintf(stderr, "Failed to allocate memory for data models\n");
+      goto load_fail;
+   }
 
-      if (gDataElements[j].type == TYPE_STRING || gDataElements[j].type == TYPE_DATETIME || gDataElements[j].type == TYPE_BASE64) {
-         g_internalDataElements[i].value.strVal = strdup(gDataElements[j].value.strVal);
-         if (!g_internalDataElements[i].value.strVal) {
+   for (int j = 0; j < hard_num; j++, g_numElements++) {
+      DataElement *de = &g_internalDataElements[g_numElements];
+      strncpy(de->name, gDataElements[j].name, MAX_NAME_LEN - 1);
+      de->name[MAX_NAME_LEN - 1] = '\0';
+      de->elementType = gDataElements[j].elementType;
+      de->type = gDataElements[j].type;
+      de->getHandler = gDataElements[j].getHandler;
+      de->setHandler = gDataElements[j].setHandler;
+      de->tableAddRowHandler = gDataElements[j].tableAddRowHandler;
+      de->tableRemoveRowHandler = gDataElements[j].tableRemoveRowHandler;
+      de->eventSubHandler = gDataElements[j].eventSubHandler;
+      de->methodHandler = gDataElements[j].methodHandler;
+
+      if (IS_STRING_TYPE(de->type)) {
+         de->value.strVal = strdup(gDataElements[j].value.strVal);
+         if (!de->value.strVal) {
             fprintf(stderr, "Failed to allocate memory for global data model string\n");
-            free(g_internalDataElements);
-            g_internalDataElements = NULL;
-            cJSON_Delete(root);
-            return false;
+            goto load_fail;
          }
       } else {
-         g_internalDataElements[i].value = gDataElements[j].value;
+         de->value = gDataElements[j].value;
       }
    }
 
    cJSON_Delete(root);
+
+   g_initial_values = initial_values;
+   g_num_initial = num_initial;
+
    return true;
-}
 
-// Callback for handling get requests
-rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   char const *name = rbusProperty_GetName(property);
-   for (int i = 0; i < g_totalElements; i++) {
-      if (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY && strcmp(name, g_internalDataElements[i].name) == 0) {
-         rbusValue_t value;
-         rbusValue_Init(&value);
-         switch (g_internalDataElements[i].type) {
-         case TYPE_STRING:
-         case TYPE_DATETIME:
-         case TYPE_BASE64:
-            rbusValue_SetString(value, g_internalDataElements[i].value.strVal);
-            break;
-         case TYPE_INT:
-            rbusValue_SetInt32(value, g_internalDataElements[i].value.intVal);
-            break;
-         case TYPE_UINT:
-            rbusValue_SetUInt32(value, g_internalDataElements[i].value.uintVal);
-            break;
-         case TYPE_BOOL:
-            rbusValue_SetBoolean(value, g_internalDataElements[i].value.boolVal);
-            break;
-         case TYPE_LONG:
-            rbusValue_SetInt64(value, g_internalDataElements[i].value.longVal);
-            break;
-         case TYPE_ULONG:
-            rbusValue_SetUInt64(value, g_internalDataElements[i].value.ulongVal);
-            break;
-         case TYPE_FLOAT:
-            rbusValue_SetSingle(value, g_internalDataElements[i].value.floatVal);
-            break;
-         case TYPE_DOUBLE:
-            rbusValue_SetDouble(value, g_internalDataElements[i].value.doubleVal);
-            break;
-         case TYPE_BYTE:
-            rbusValue_SetByte(value, g_internalDataElements[i].value.byteVal);
-            break;
-         }
-         rbusProperty_SetValue(property, value);
-         rbusValue_Release(value);
-         return RBUS_ERROR_SUCCESS;
+load_fail:
+   // Free allocated
+
+   for (int j = 0; j < g_numElements; j++) {
+      if (IS_STRING_TYPE(g_internalDataElements[j].type)) {
+         free(g_internalDataElements[j].value.strVal);
       }
    }
-   return RBUS_ERROR_INVALID_INPUT;
-}
+   free(g_internalDataElements);
+   g_internalDataElements = NULL;
+   g_numElements = 0;
 
-rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t *options) {
-   char const *name = rbusProperty_GetName(property);
-   rbusValue_t value = rbusProperty_GetValue(property);
-   for (int i = 0; i < g_totalElements; i++) {
-      if (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY && strcmp(name, g_internalDataElements[i].name) == 0) {
-         switch (g_internalDataElements[i].type) {
-         case TYPE_STRING:
-         case TYPE_DATETIME:
-         case TYPE_BASE64: {
-            char *str = rbusValue_ToString(value, NULL, 0);
-            if (str) {
-               if (g_internalDataElements[i].value.strVal) {
-                  free(g_internalDataElements[i].value.strVal);
-               }
-               g_internalDataElements[i].value.strVal = strdup(str);
-               free(str);
-               if (!g_internalDataElements[i].value.strVal) {
-                  return RBUS_ERROR_OUT_OF_RESOURCES;
-               }
-            }
-            break;
-         }
-         case TYPE_INT:
-            g_internalDataElements[i].value.intVal = rbusValue_GetInt32(value);
-            break;
-         case TYPE_UINT:
-            g_internalDataElements[i].value.uintVal = rbusValue_GetUInt32(value);
-            break;
-         case TYPE_BOOL:
-            g_internalDataElements[i].value.boolVal = rbusValue_GetBoolean(value);
-            break;
-         case TYPE_LONG:
-            g_internalDataElements[i].value.longVal = rbusValue_GetInt64(value);
-            break;
-         case TYPE_ULONG:
-            g_internalDataElements[i].value.ulongVal = rbusValue_GetUInt64(value);
-            break;
-         case TYPE_FLOAT:
-            g_internalDataElements[i].value.floatVal = rbusValue_GetSingle(value);
-            break;
-         case TYPE_DOUBLE:
-            g_internalDataElements[i].value.doubleVal = rbusValue_GetDouble(value);
-            break;
-         case TYPE_BYTE:
-            g_internalDataElements[i].value.byteVal = rbusValue_GetByte(value);
-            break;
-         }
-         return RBUS_ERROR_SUCCESS;
+   for (int j = 0; j < num_initial; j++) {
+      if (IS_STRING_TYPE(initial_values[j].type)) {
+         free(initial_values[j].value.strVal);
       }
    }
-   return RBUS_ERROR_INVALID_INPUT;
+   free(initial_values);
+   cJSON_Delete(root);
+   return false;
 }
 
 static void cleanup(void) {
@@ -1379,31 +683,142 @@ static void cleanup(void) {
             g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_EVENT) {
             rbusEvent_Unsubscribe(g_rbusHandle, g_internalDataElements[i].name);
          }
-         if (g_internalDataElements[i].type == TYPE_STRING ||
-            g_internalDataElements[i].type == TYPE_DATETIME ||
-            g_internalDataElements[i].type == TYPE_BASE64) {
+         if (IS_STRING_TYPE(g_internalDataElements[i].type)) {
             free(g_internalDataElements[i].value.strVal);
          }
-         if (g_dataElements[i].name) {
-            free(g_dataElements[i].name);
-         }
+         free(g_dataElements[i].name);
       }
       free(g_dataElements);
       g_dataElements = NULL;
    }
-   if (g_tableRows) {
-      free(g_tableRows);
-      g_tableRows = NULL;
-      g_numTableRows = 0;
+
+   // Free tables
+   for (int i = 0; i < g_num_tables; i++) {
+      for (int j = 0; j < g_tables[i].num_rows; j++) {
+         RowProperty *p = g_tables[i].rows[j].props;
+         while (p) {
+            RowProperty *next = p->next;
+            if (IS_STRING_TYPE(p->type)) {
+               free(p->value.strVal);
+            }
+            free(p);
+            p = next;
+         }
+      }
+      free(g_tables[i].rows);
    }
-   if (g_internalDataElements) {
-      free(g_internalDataElements);
-      g_internalDataElements = NULL;
-   }
+   free(g_tables);
+   g_tables = NULL;
+   g_num_tables = 0;
+
    if (g_rbusHandle) {
       rbus_close(g_rbusHandle);
       g_rbusHandle = NULL;
    }
+}
+
+void ensure_table(const char *table_wild) {
+   if (!table_wild || strlen(table_wild) == 0) return;
+
+   // Check if table exists
+   bool exists = false;
+   for (int j = 0; j < g_numElements; j++) {
+      if (strcmp(g_internalDataElements[j].name, table_wild) == 0 &&
+         g_internalDataElements[j].elementType == RBUS_ELEMENT_TYPE_TABLE) {
+         exists = true;
+         break;
+      }
+   }
+   if (exists) return;
+
+   // Recurse on parent
+   char *parent = get_parent_table(table_wild);
+   if (parent) {
+      ensure_table(parent);
+      free(parent);
+   }
+
+   // Add table
+   g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
+   if (!g_internalDataElements) {
+      fprintf(stderr, "Failed to allocate memory for data models\n");
+      return;
+   }
+   DataElement *de = &g_internalDataElements[g_numElements];
+   strncpy(de->name, table_wild, MAX_NAME_LEN - 1);
+   de->name[MAX_NAME_LEN - 1] = '\0';
+   de->elementType = RBUS_ELEMENT_TYPE_TABLE;
+   de->type = TYPE_STRING;
+   de->value.strVal = strdup("");
+   de->getHandler = NULL;
+   de->setHandler = NULL;
+   de->tableAddRowHandler = table_add_row;
+   de->tableRemoveRowHandler = table_remove_row;
+   de->eventSubHandler = NULL;
+   de->methodHandler = NULL;
+   g_numElements++;
+
+   // Add NumberOfEntries property
+   char *base = strdup(table_wild);
+   if (base[strlen(base) - 1] == '.') base[strlen(base) - 1] = '\0';
+   char num_name[MAX_NAME_LEN];
+   snprintf(num_name, MAX_NAME_LEN, "%s%s", base, TABLE_COUNT_PROP);
+   free(base);
+
+   bool num_exists = false;
+   for (int j = 0; j < g_numElements; j++) {
+      if (strcmp(g_internalDataElements[j].name, num_name) == 0 &&
+         g_internalDataElements[j].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
+         num_exists = true;
+         break;
+      }
+   }
+   if (!num_exists) {
+      g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
+      if (!g_internalDataElements) {
+         fprintf(stderr, "Failed to allocate memory for data models\n");
+         return;
+      }
+      de = &g_internalDataElements[g_numElements];
+      strncpy(de->name, num_name, MAX_NAME_LEN - 1);
+      de->name[MAX_NAME_LEN - 1] = '\0';
+      de->elementType = RBUS_ELEMENT_TYPE_PROPERTY;
+      de->type = TYPE_UINT;
+      de->value.uintVal = 0;
+      de->getHandler = getTableHandler;
+      de->setHandler = NULL;
+      de->tableAddRowHandler = NULL;
+      de->tableRemoveRowHandler = NULL;
+      de->eventSubHandler = NULL;
+      de->methodHandler = NULL;
+      g_numElements++;
+   }
+}
+
+static int num_table_max = 0;
+static TableMaxInst *table_max = NULL;
+static void update_max(const char *t_name, uint32_t inst) {
+   for (int k = 0; k < num_table_max; k++) {
+      if (strcmp(table_max[k].name, t_name) == 0) {
+         if (inst > table_max[k].max_inst) table_max[k].max_inst = inst;
+         return;
+      }
+   }
+   table_max = realloc(table_max, (num_table_max + 1) * sizeof(TableMaxInst));
+   strcpy(table_max[num_table_max].name, t_name);
+   table_max[num_table_max].max_inst = inst;
+   num_table_max++;
+}
+
+static void ensure_inst(const char *c_table, uint32_t c_inst) {
+   if (!c_table) return;
+   update_max(c_table, c_inst);
+   uint32_t p_inst = 0;
+   char *p_table = get_parent_concrete(c_table, &p_inst);
+   if (p_table) {
+      ensure_inst(p_table, p_inst);
+   }
+   free(p_table);
 }
 
 int main(int argc, char *argv[]) {
@@ -1426,7 +841,6 @@ int main(int argc, char *argv[]) {
       return 1;
    }
 
-   // Dynamically allocate memory for dataElements
    g_dataElements = (rbusDataElement_t *)malloc(g_totalElements * sizeof(rbusDataElement_t));
    if (!g_dataElements) {
       fprintf(stderr, "Failed to allocate memory for data elements\n");
@@ -1435,7 +849,6 @@ int main(int argc, char *argv[]) {
    }
 
    for (int i = 0; i < g_totalElements; i++) {
-      g_dataElements[i].name = NULL;
       g_dataElements[i].name = strdup(g_internalDataElements[i].name);
       if (!g_dataElements[i].name) {
          fprintf(stderr, "Failed to allocate memory for data element name\n");
@@ -1460,8 +873,128 @@ int main(int argc, char *argv[]) {
 
    printf("Successfully registered %d data elements\n", g_totalElements);
 
+   for (int i = 0; i < sizeof(gMethodElements) / sizeof(DataElement); i++) {
+      const DataElement *method = &gMethodElements[i];
+      registerMethod(g_rbusHandle, method);
+   }
+
+   printf("Successfully registered %zu methods\n", sizeof(gMethodElements) / sizeof(DataElement));
+
+   // Populate initial rows and values
+
+   // First, collect unique concrete tables and max_inst recursively
+   for (int j = 0; j < g_num_initial; j++) {
+      ensure_inst(g_initial_values[j].table, g_initial_values[j].inst);
+   }
+
+   // Sort by increasing number of indices (outer first)
+   qsort(table_max, num_table_max, sizeof(TableMaxInst), compare_tables);
+
+   // Add initial rows
+   for (int k = 0; k < num_table_max; k++) {
+      char *tbl = table_max[k].name;
+      int max = table_max[k].max_inst;
+
+      // Find or create TableDef
+      TableDef *table = NULL;
+      for (int i = 0; i < g_num_tables; i++) {
+         if (strcmp(g_tables[i].name, tbl) == 0) {
+            table = &g_tables[i];
+            break;
+         }
+      }
+      if (!table) {
+         g_tables = realloc(g_tables, (g_num_tables + 1) * sizeof(TableDef));
+         table = &g_tables[g_num_tables++];
+         strcpy(table->name, tbl);
+         table->rows = NULL;
+         table->num_rows = 0;
+         table->next_inst = 1;
+         table->num_inst = 0;
+      }
+
+      for (uint32_t m = table->next_inst; m <= max; m++) {
+         table->rows = realloc(table->rows, (table->num_rows + 1) * sizeof(TableRow));
+         TableRow *row = &table->rows[table->num_rows];
+         snprintf(row->name, MAX_NAME_LEN, "%s", tbl);
+         row->instNum = m;
+         row->alias[0] = '\0';
+         row->props = NULL;
+         table->num_rows++;
+
+         //rc = rbusTable_registerRow(g_rbusHandle, row->name, row->instNum, NULL);
+         rc = rbusTable_addRow(g_rbusHandle, row->name, row->alias, &row->instNum);
+         if (rc != RBUS_ERROR_SUCCESS) {
+            fprintf(stderr, "Failed to register initial row %s: %d\n", row->name, rc);
+         }
+      }
+      table->next_inst = max + 1;
+   }
+   free(table_max);
+
+   // Set initial values
+   for (int j = 0; j < g_num_initial; j++) {
+      char concrete[sizeof(g_initial_values[j].table) + g_initial_values[j].inst + sizeof(g_initial_values[j].prop)];
+      snprintf(concrete, sizeof(concrete), "%s%d.%s", g_initial_values[j].table, g_initial_values[j].inst, g_initial_values[j].prop);
+
+      rbusValue_t val;
+      rbusValue_Init(&val);
+      switch (g_initial_values[j].type) {
+      case TYPE_STRING:
+      case TYPE_DATETIME:
+      case TYPE_BASE64:
+         rbusValue_SetString(val, g_initial_values[j].value.strVal);
+         break;
+      case TYPE_INT:
+         rbusValue_SetInt32(val, g_initial_values[j].value.intVal);
+         break;
+      case TYPE_UINT:
+         rbusValue_SetUInt32(val, g_initial_values[j].value.uintVal);
+         break;
+      case TYPE_BOOL:
+         rbusValue_SetBoolean(val, g_initial_values[j].value.boolVal);
+         break;
+      case TYPE_LONG:
+         rbusValue_SetInt64(val, g_initial_values[j].value.longVal);
+         break;
+      case TYPE_ULONG:
+         rbusValue_SetUInt64(val, g_initial_values[j].value.ulongVal);
+         break;
+      case TYPE_FLOAT:
+         rbusValue_SetSingle(val, g_initial_values[j].value.floatVal);
+         break;
+      case TYPE_DOUBLE:
+         rbusValue_SetDouble(val, g_initial_values[j].value.doubleVal);
+         break;
+      case TYPE_BYTE:
+         rbusValue_SetByte(val, g_initial_values[j].value.byteVal);
+         break;
+      }
+
+      rbusSetOptions_t opts = {.commit = true};
+      rc = rbus_set(g_rbusHandle, concrete, val, &opts);
+      if (rc != RBUS_ERROR_SUCCESS) {
+         fprintf(stderr, "Failed to set initial value for %s: %d\n", concrete, rc);
+      }
+      rbusValue_Release(val);
+   }
+
+   // Free initial
+   for (int j = 0; j < g_num_initial; j++) {
+      if (IS_STRING_TYPE(g_initial_values[j].type)) {
+         free(g_initial_values[j].value.strVal);
+      }
+   }
+   free(g_initial_values);
+   g_initial_values = NULL;
+   g_num_initial = 0;
+
+   // Set non-table properties
    for (int i = 0; i < g_totalElements; i++) {
       if (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
+         if (strstr(g_internalDataElements[i].name, "{i}") != NULL) {
+            continue; // Skip wildcard properties
+         }
          rbusValue_t value;
          rbusValue_Init(&value);
          switch (g_internalDataElements[i].type) {
@@ -1497,6 +1030,7 @@ int main(int argc, char *argv[]) {
          }
 
          rbusSetOptions_t opts = {.commit = true};
+         //fprintf(stdout, "Setting initial value for %s\n", g_internalDataElements[i].name);
          rc = rbus_set(g_rbusHandle, g_internalDataElements[i].name, value, &opts);
          if (rc != RBUS_ERROR_SUCCESS) {
             fprintf(stderr, "Failed to set %s: %d\n", g_internalDataElements[i].name, rc);

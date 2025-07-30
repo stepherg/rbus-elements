@@ -1,8 +1,32 @@
 #include "rbus_elements.h"
 
+
+void registerMethod(rbusHandle_t handle, const DataElement *method) {
+   rbusDataElement_t elements[] = {{(char *)method->name, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, method->methodHandler}}};
+   rbus_regDataElements(handle, 1, elements);
+}
+
 rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
-   rbusValue_t delayVal = rbusObject_GetValue(inParams, "delay");
-   int32_t delay = delayVal ? rbusValue_GetInt32(delayVal) : 0;
+
+   int32_t delay = 0;
+   const char *delaystr = NULL;
+   rbusValue_t delayVal = rbusObject_GetValue(inParams, "Delay");
+   rbusValueType_t delay_type = rbusValue_GetType(delayVal);
+
+   switch (delay_type) {
+   case RBUS_INT32:
+      delay = rbusValue_GetInt32(delayVal);
+      break;
+   case RBUS_INT64:
+      delay = (int32_t)rbusValue_GetInt64(delayVal);
+      break;
+   case RBUS_STRING:
+      delaystr = rbusValue_GetString(delayVal, NULL);
+      delay = atoi(delaystr);
+      break;
+   default:
+      break;
+   }
 
    if (delay < 0) {
       rbusObject_SetValue(outParams, "error", rbusValue_InitString("Invalid delay value"));
@@ -12,7 +36,7 @@ rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodName, rb
    rbusValue_t resultVal;
    rbusValue_Init(&resultVal);
    rbusValue_SetString(resultVal, "Reboot scheduled");
-   rbusObject_SetValue(outParams, "status", resultVal);
+   rbusObject_SetValue(outParams, "Status", resultVal);
    rbusValue_Release(resultVal);
 
    // Simulate reboot (in a real system, this would call system("reboot"))
@@ -52,9 +76,9 @@ rbusError_t get_system_info_method(rbusHandle_t handle, const char *methodName, 
 
 rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
    // Validate required parameters
-   rbusValue_t msgTypeVal = rbusObject_GetValue(inParams, "msg_type");
-   rbusValue_t sourceVal = rbusObject_GetValue(inParams, "source");
-   rbusValue_t destVal = rbusObject_GetValue(inParams, "dest");
+   rbusValue_t msgTypeVal = rbusObject_GetValue(inParams, "Msg_Type");
+   rbusValue_t sourceVal = rbusObject_GetValue(inParams, "Source");
+   rbusValue_t destVal = rbusObject_GetValue(inParams, "Dest");
 
    // Set default msg_type to 4 if not provided
    const char *msg_type_str = "4";
@@ -63,7 +87,7 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *method
          if (rbusValue_GetInt32(msgTypeVal) != 4) {
             rbusValue_t errorVal;
             rbusValue_Init(&errorVal);
-            rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
+            rbusValue_SetString(errorVal, "Msg_Type must be integer 4 or string 'event' (Simple Event)");
             rbusObject_SetValue(outParams, "error", errorVal);
             rbusValue_Release(errorVal);
             return RBUS_ERROR_INVALID_INPUT;
@@ -72,7 +96,7 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *method
          if (strcmp(rbusValue_GetString(msgTypeVal, NULL), "event") != 0) {
             rbusValue_t errorVal;
             rbusValue_Init(&errorVal);
-            rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
+            rbusValue_SetString(errorVal, "Msg_Type must be integer 4 or string 'event' (Simple Event)");
             rbusObject_SetValue(outParams, "error", errorVal);
             rbusValue_Release(errorVal);
             return RBUS_ERROR_INVALID_INPUT;
@@ -81,7 +105,7 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *method
       } else {
          rbusValue_t errorVal;
          rbusValue_Init(&errorVal);
-         rbusValue_SetString(errorVal, "msg_type must be integer 4 or string 'event' (Simple Event)");
+         rbusValue_SetString(errorVal, "Msg_Type must be integer 4 or string 'event' (Simple Event)");
          rbusObject_SetValue(outParams, "error", errorVal);
          rbusValue_Release(errorVal);
          return RBUS_ERROR_INVALID_INPUT;

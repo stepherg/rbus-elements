@@ -113,13 +113,22 @@ static const DataElement gDataElements[] = {
       .type = TYPE_STRING, // Not used for events
       .value.strVal = "",
       .eventSubHandler = NULL,
-   },
+   }
+};
+
+static const DataElement gMethodElements[] = {
    {
       .name = "Device.Reboot()",
       .elementType = RBUS_ELEMENT_TYPE_METHOD,
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = system_reboot_method,
+      .methodArgs = {
+         .numInputArgs = 1,
+         .inputArgs = (char *[]){"Delay"},
+         .numOutputArgs = 1,
+         .outputArgs = (char *[]){"Status"}
+      }
    },
    {
       .name = "Device.GetSystemInfo()",
@@ -127,6 +136,12 @@ static const DataElement gDataElements[] = {
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = get_system_info_method,
+      .methodArgs = {
+         .numInputArgs = 0,
+         .inputArgs = NULL,
+         .numOutputArgs = 3,
+         .outputArgs = (char *[]){"SerialNumber", "SystemTime", "UpTime"}
+      }
    },
    {
       .name = "Device.X_RDK_Xmidt.SendData()",
@@ -134,6 +149,12 @@ static const DataElement gDataElements[] = {
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = device_x_rdk_xmidt_send_data,
+      .methodArgs = {
+         .numInputArgs = 2,
+         .inputArgs = (char *[]){"Msg_Type", "Source", "Dest"},
+         .numOutputArgs = 1,
+         .outputArgs = (char *[]){"OutParams"}
+      }
    }
 };
 
@@ -851,6 +872,13 @@ int main(int argc, char *argv[]) {
    }
 
    printf("Successfully registered %d data elements\n", g_totalElements);
+
+   for (int i = 0; i < sizeof(gMethodElements) / sizeof(DataElement); i++) {
+      const DataElement *method = &gMethodElements[i];
+      registerMethod(g_rbusHandle, method);
+   }
+
+   printf("Successfully registered %zu methods\n", sizeof(gMethodElements) / sizeof(DataElement));
 
    // Populate initial rows and values
 

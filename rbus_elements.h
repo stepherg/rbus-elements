@@ -44,6 +44,13 @@ typedef enum {
 } ValueType;
 
 typedef struct {
+   unsigned int numInputArgs;
+   char **inputArgs;
+   unsigned int numOutputArgs;
+   char **outputArgs;
+} MethodArgs;
+
+typedef struct {
    char name[MAX_NAME_LEN];
    rbusElementType_t elementType; // RBUS_ELEMENT_TYPE_PROPERTY, TABLE, EVENT, or METHOD
    ValueType type; // Used for properties only
@@ -64,6 +71,7 @@ typedef struct {
    rbusTableRemoveRowHandler_t tableRemoveRowHandler;
    rbusEventSubHandler_t eventSubHandler;
    rbusMethodHandler_t methodHandler;
+   MethodArgs methodArgs;
 } DataElement;
 
 typedef struct RowProperty {
@@ -132,6 +140,7 @@ rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, r
 rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
 rbusError_t get_system_info_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
 rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
+void registerMethod(rbusHandle_t handle, const DataElement *method);
 
 // Handlers
 char *get_table_name(const char *name, uint32_t *instance, char **property_name);

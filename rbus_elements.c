@@ -1,14 +1,14 @@
 #include "rbus_elements.h"
 
-DataElement *g_internalDataElements = NULL;
+DataElement* g_internalDataElements = NULL;
 static int g_numElements = 0;
 int g_totalElements = 0;
 rbusHandle_t g_rbusHandle = NULL;
-static rbusDataElement_t *g_dataElements = NULL;
+static rbusDataElement_t* g_dataElements = NULL;
 static volatile sig_atomic_t g_running = 1;
-TableDef *g_tables = NULL;
+TableDef* g_tables = NULL;
 int g_num_tables = 0;
-InitialRowValue *g_initial_values = NULL;
+InitialRowValue* g_initial_values = NULL;
 int g_num_initial = 0;
 
 typedef struct {
@@ -16,19 +16,19 @@ typedef struct {
    uint32_t max_inst;
 }TableMaxInst;
 
-static char *get_parent_table(const char *table_wild);
-static char *get_parent_concrete(const char *c_table, uint32_t *p_inst);
-static void ensure_table(const char *table_wild);
-static int count_indices(const char *name);
+static char* get_parent_table(const char* table_wild);
+static char* get_parent_concrete(const char* c_table, uint32_t* p_inst);
+static void ensure_table(const char* table_wild);
+static int count_indices(const char* name);
 
 // Signal handler for SIGINT and SIGTERM
 static void signal_handler(int sig) {
    g_running = 0;
 }
 
-static bool is_digit_str(const char *str) {
+static bool is_digit_str(const char* str) {
    if (*str == '\0') return false;
-   char *end;
+   char* end;
    errno = 0;
    long val = strtol(str, &end, 10);
    return (errno == 0 && *end == '\0' && val > 0);
@@ -125,9 +125,9 @@ static const DataElement gMethodElements[] = {
       .methodHandler = system_reboot_method,
       .methodArgs = {
          .numInputArgs = 1,
-         .inputArgs = (char *[]){"Delay"},
+         .inputArgs = (char* []){"Delay"},
          .numOutputArgs = 1,
-         .outputArgs = (char *[]){"Status"}
+         .outputArgs = (char* []){"Status"}
       }
    },
    {
@@ -140,38 +140,38 @@ static const DataElement gMethodElements[] = {
          .numInputArgs = 0,
          .inputArgs = NULL,
          .numOutputArgs = 3,
-         .outputArgs = (char *[]){"SerialNumber", "SystemTime", "UpTime"}
+         .outputArgs = (char* []){"SerialNumber", "SystemTime", "UpTime"}
       }
    },
    {
-      .name = "Device.X_RDK_Xmidt.SendData()",
+      .name = "Device.Telemetry.Collect",
       .elementType = RBUS_ELEMENT_TYPE_METHOD,
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = device_x_rdk_xmidt_send_data,
       .methodArgs = {
          .numInputArgs = 2,
-         .inputArgs = (char *[]){"Msg_Type", "Source", "Dest"},
+         .inputArgs = (char* []){"Msg_Type", "Source", "Dest"},
          .numOutputArgs = 1,
-         .outputArgs = (char *[]){"OutParams"}
+         .outputArgs = (char* []){"OutParams"}
       }
    }
 };
 
-char *create_wildcard(const char *name) {
+char* create_wildcard(const char* name) {
    size_t len = strlen(name);
-   char *result = malloc(len * 2 + 1);  // Safe upper bound
+   char* result = malloc(len * 2 + 1);  // Safe upper bound
    if (!result) return NULL;
    result[0] = '\0';
 
    bool trailing_dot = (name[len - 1] == '.');
-   char *temp = strdup(name);
+   char* temp = strdup(name);
    if (!temp) {
       free(result);
       return NULL;
    }
 
-   char *token = strtok(temp, ".");
+   char* token = strtok(temp, ".");
    bool first = true;
    while (token) {
       if (!first) strcat(result, ".");
@@ -188,32 +188,32 @@ char *create_wildcard(const char *name) {
    return result;
 }
 
-char *get_parent_table(const char *table_wild) {
-   const char *pattern = ".{i}.";
-   const char *last = NULL;
-   const char *pos = table_wild;
+char* get_parent_table(const char* table_wild) {
+   const char* pattern = ".{i}.";
+   const char* last = NULL;
+   const char* pos = table_wild;
    while ((pos = strstr(pos, pattern)) != NULL) {
       last = pos;
       pos += 1;
    }
    if (!last) return NULL;
    size_t len = last - table_wild + 1;
-   char *parent = malloc(len + 1);
+   char* parent = malloc(len + 1);
    if (!parent) return NULL;
    strncpy(parent, table_wild, len);
    parent[len] = '\0';
    return parent;
 }
 
-char *get_parent_concrete(const char *c_table, uint32_t *p_inst) {
+char* get_parent_concrete(const char* c_table, uint32_t* p_inst) {
    size_t len = strlen(c_table);
    if (len < 2 || c_table[len - 1] != '.') return NULL;
-   char *fake_prop = strdup(c_table);
+   char* fake_prop = strdup(c_table);
    if (!fake_prop) return NULL;
    fake_prop[len - 1] = '\0';  // Remove trailing '.'
-   char *dummy_prop = NULL;
+   char* dummy_prop = NULL;
    uint32_t dummy_inst = 0;
-   char *parent_tbl = get_table_name(fake_prop, &dummy_inst, &dummy_prop);
+   char* parent_tbl = get_table_name(fake_prop, &dummy_inst, &dummy_prop);
    free(fake_prop);
    if (!parent_tbl) return NULL;
    *p_inst = dummy_inst;
@@ -221,11 +221,11 @@ char *get_parent_concrete(const char *c_table, uint32_t *p_inst) {
    return parent_tbl;
 }
 
-int count_indices(const char *name) {
+int count_indices(const char* name) {
    int count = 0;
-   char *d = strdup(name);
+   char* d = strdup(name);
    if (!d) return 0;
-   char *token = strtok(d, ".");
+   char* token = strtok(d, ".");
    while (token) {
       if (is_digit_str(token)) count++;
       token = strtok(NULL, ".");
@@ -234,16 +234,16 @@ int count_indices(const char *name) {
    return count;
 }
 
-static int compare_tables(const void *a, const void *b) {
-   const TableMaxInst *ta = (const TableMaxInst *)a;
-   const TableMaxInst *tb = (const TableMaxInst *)b;
+static int compare_tables(const void* a, const void* b) {
+   const TableMaxInst* ta = (const TableMaxInst*)a;
+   const TableMaxInst* tb = (const TableMaxInst*)b;
    int da = count_indices(ta->name);
    int db = count_indices(tb->name);
    return da - db;
 }
 
-bool loadDataElementsFromJson(const char *json_path) {
-   FILE *file = fopen(json_path, "r");
+bool loadDataElementsFromJson(const char* json_path) {
+   FILE* file = fopen(json_path, "r");
    if (!file) {
       fprintf(stderr, "Failed to open JSON file: %s\n", json_path);
       return false;
@@ -252,7 +252,7 @@ bool loadDataElementsFromJson(const char *json_path) {
    fseek(file, 0, SEEK_END);
    long file_size = ftell(file);
    fseek(file, 0, SEEK_SET);
-   char *json_str = (char *)malloc(file_size + 1);
+   char* json_str = (char*)malloc(file_size + 1);
    if (!json_str) {
       fprintf(stderr, "Failed to allocate memory for JSON string\n");
       fclose(file);
@@ -262,7 +262,7 @@ bool loadDataElementsFromJson(const char *json_path) {
    json_str[read_size] = '\0';
    fclose(file);
 
-   cJSON *root = cJSON_Parse(json_str);
+   cJSON* root = cJSON_Parse(json_str);
    free(json_str);
    if (!root) {
       fprintf(stderr, "Failed to parse JSON: %s\n", cJSON_GetErrorPtr());
@@ -285,34 +285,34 @@ bool loadDataElementsFromJson(const char *json_path) {
    g_internalDataElements = NULL;
    g_numElements = 0;
 
-   InitialRowValue *initial_values = NULL;
+   InitialRowValue* initial_values = NULL;
    int num_initial = 0;
 
    for (int i = 0; i < json_num; i++) {
-      cJSON *item = cJSON_GetArrayItem(root, i);
+      cJSON* item = cJSON_GetArrayItem(root, i);
       if (!cJSON_IsObject(item)) {
          fprintf(stderr, "Item %d is not an object\n", i);
          goto load_fail;
       }
 
-      cJSON *name_obj = cJSON_GetObjectItem(item, "name");
-      cJSON *element_type_obj = cJSON_GetObjectItem(item, "elementType");
-      cJSON *type_obj = cJSON_GetObjectItem(item, "type");
-      cJSON *value_obj = cJSON_GetObjectItem(item, "value");
+      cJSON* name_obj = cJSON_GetObjectItem(item, "name");
+      cJSON* element_type_obj = cJSON_GetObjectItem(item, "elementType");
+      cJSON* type_obj = cJSON_GetObjectItem(item, "type");
+      cJSON* value_obj = cJSON_GetObjectItem(item, "value");
 
       if (!cJSON_IsString(name_obj)) {
          fprintf(stderr, "Invalid name for item %d\n", i);
          goto load_fail;
       }
 
-      const char *element_type_str;
+      const char* element_type_str;
       if (element_type_obj && cJSON_IsString(element_type_obj)) {
          element_type_str = cJSON_GetStringValue(element_type_obj);
       } else {
          element_type_str = "property";
       }
 
-      const char *name = cJSON_GetStringValue(name_obj);
+      const char* name = cJSON_GetStringValue(name_obj);
       rbusElementType_t element_type;
 
       if (strcmp(element_type_str, "property") == 0) {
@@ -336,8 +336,8 @@ bool loadDataElementsFromJson(const char *json_path) {
 
          ValueType type = (ValueType)cJSON_GetNumberValue(type_obj);
          uint32_t inst;
-         char *prop = NULL;
-         char *tbl = get_table_name(name, &inst, &prop);
+         char* prop = NULL;
+         char* tbl = get_table_name(name, &inst, &prop);
          if (tbl) {
             // Row property
             InitialRowValue iv;
@@ -347,101 +347,101 @@ bool loadDataElementsFromJson(const char *json_path) {
             iv.type = type;
 
             switch (type) {
-            case TYPE_STRING:
-            case TYPE_DATETIME:
-            case TYPE_BASE64:
-               iv.value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
-               if (!iv.value.strVal) {
-                  fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
-                  free(tbl);
-                  free(prop);
-                  goto load_fail;
-               }
-               break;
-            case TYPE_INT:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
-                  if (val >= INT32_MIN && val <= INT32_MAX) {
-                     iv.value.intVal = (int32_t)val;
-                  } else {
-                     fprintf(stderr, "Value out of range for TYPE_INT at item %d\n", i);
+               case TYPE_STRING:
+               case TYPE_DATETIME:
+               case TYPE_BASE64:
+                  iv.value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
+                  if (!iv.value.strVal) {
+                     fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
                      free(tbl);
                      free(prop);
                      goto load_fail;
                   }
-               } else {
-                  iv.value.intVal = 0;
-               }
-               break;
-            case TYPE_UINT:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
-                  if (val >= 0 && val <= UINT32_MAX) {
-                     iv.value.uintVal = (uint32_t)val;
+                  break;
+               case TYPE_INT:
+                  if (value_obj && cJSON_IsNumber(value_obj)) {
+                     double val = cJSON_GetNumberValue(value_obj);
+                     if (val >= INT32_MIN && val <= INT32_MAX) {
+                        iv.value.intVal = (int32_t)val;
+                     } else {
+                        fprintf(stderr, "Value out of range for TYPE_INT at item %d\n", i);
+                        free(tbl);
+                        free(prop);
+                        goto load_fail;
+                     }
                   } else {
-                     fprintf(stderr, "Value out of range for TYPE_UINT at item %d\n", i);
-                     free(tbl);
-                     free(prop);
-                     goto load_fail;
+                     iv.value.intVal = 0;
                   }
-               } else {
-                  iv.value.uintVal = 0;
-               }
-               break;
-            case TYPE_BOOL:
-               iv.value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
-               break;
-            case TYPE_LONG:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
-                  if (val >= INT64_MIN && val <= INT64_MAX) {
-                     iv.value.longVal = (int64_t)val;
+                  break;
+               case TYPE_UINT:
+                  if (value_obj && cJSON_IsNumber(value_obj)) {
+                     double val = cJSON_GetNumberValue(value_obj);
+                     if (val >= 0 && val <= UINT32_MAX) {
+                        iv.value.uintVal = (uint32_t)val;
+                     } else {
+                        fprintf(stderr, "Value out of range for TYPE_UINT at item %d\n", i);
+                        free(tbl);
+                        free(prop);
+                        goto load_fail;
+                     }
                   } else {
-                     fprintf(stderr, "Value out of range for TYPE_LONG at item %d\n", i);
-                     free(tbl);
-                     free(prop);
-                     goto load_fail;
+                     iv.value.uintVal = 0;
                   }
-               } else {
-                  iv.value.longVal = 0;
-               }
-               break;
-            case TYPE_ULONG:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
-                  if (val >= 0 && val <= UINT64_MAX) {
-                     iv.value.ulongVal = (uint64_t)val;
+                  break;
+               case TYPE_BOOL:
+                  iv.value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
+                  break;
+               case TYPE_LONG:
+                  if (value_obj && cJSON_IsNumber(value_obj)) {
+                     double val = cJSON_GetNumberValue(value_obj);
+                     if (val >= INT64_MIN && val <= INT64_MAX) {
+                        iv.value.longVal = (int64_t)val;
+                     } else {
+                        fprintf(stderr, "Value out of range for TYPE_LONG at item %d\n", i);
+                        free(tbl);
+                        free(prop);
+                        goto load_fail;
+                     }
                   } else {
-                     fprintf(stderr, "Value out of range for TYPE_ULONG at item %d\n", i);
-                     free(tbl);
-                     free(prop);
-                     goto load_fail;
+                     iv.value.longVal = 0;
                   }
-               } else {
-                  iv.value.ulongVal = 0;
-               }
-               break;
-            case TYPE_FLOAT:
-               iv.value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
-               break;
-            case TYPE_DOUBLE:
-               iv.value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
-               break;
-            case TYPE_BYTE:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
-                  if (val >= 0 && val <= UINT8_MAX) {
-                     iv.value.byteVal = (uint8_t)val;
+                  break;
+               case TYPE_ULONG:
+                  if (value_obj && cJSON_IsNumber(value_obj)) {
+                     double val = cJSON_GetNumberValue(value_obj);
+                     if (val >= 0 && val <= UINT64_MAX) {
+                        iv.value.ulongVal = (uint64_t)val;
+                     } else {
+                        fprintf(stderr, "Value out of range for TYPE_ULONG at item %d\n", i);
+                        free(tbl);
+                        free(prop);
+                        goto load_fail;
+                     }
                   } else {
-                     fprintf(stderr, "Value out of range for TYPE_BYTE at item %d\n", i);
-                     free(tbl);
-                     free(prop);
-                     goto load_fail;
+                     iv.value.ulongVal = 0;
                   }
-               } else {
-                  iv.value.byteVal = 0;
-               }
-               break;
+                  break;
+               case TYPE_FLOAT:
+                  iv.value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
+                  break;
+               case TYPE_DOUBLE:
+                  iv.value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
+                  break;
+               case TYPE_BYTE:
+                  if (value_obj && cJSON_IsNumber(value_obj)) {
+                     double val = cJSON_GetNumberValue(value_obj);
+                     if (val >= 0 && val <= UINT8_MAX) {
+                        iv.value.byteVal = (uint8_t)val;
+                     } else {
+                        fprintf(stderr, "Value out of range for TYPE_BYTE at item %d\n", i);
+                        free(tbl);
+                        free(prop);
+                        goto load_fail;
+                     }
+                  } else {
+                     iv.value.byteVal = 0;
+                  }
+                  break;
             }
 
             // Add to initial_values
@@ -450,12 +450,12 @@ bool loadDataElementsFromJson(const char *json_path) {
             num_initial++;
 
             // Compute wildcards
-            char *table_wild = create_wildcard(tbl);
+            char* table_wild = create_wildcard(tbl);
             ensure_table(table_wild);
             free(table_wild);
 
             // Add wildcard property if not present
-            char *prop_wild = create_wildcard(name);
+            char* prop_wild = create_wildcard(name);
             bool prop_exists = false;
             for (int j = 0; j < g_numElements; j++) {
                if (strcmp(g_internalDataElements[j].name, prop_wild) == 0 && g_internalDataElements[j].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
@@ -473,7 +473,7 @@ bool loadDataElementsFromJson(const char *json_path) {
                   goto load_fail;
                }
 
-               DataElement *de = &g_internalDataElements[g_numElements];
+               DataElement* de = &g_internalDataElements[g_numElements];
                strncpy(de->name, prop_wild, MAX_NAME_LEN - 1);
                de->name[MAX_NAME_LEN - 1] = '\0';
                de->elementType = RBUS_ELEMENT_TYPE_PROPERTY;
@@ -502,7 +502,7 @@ bool loadDataElementsFromJson(const char *json_path) {
          goto load_fail;
       }
 
-      DataElement *de = &g_internalDataElements[g_numElements];
+      DataElement* de = &g_internalDataElements[g_numElements];
       strncpy(de->name, name, MAX_NAME_LEN - 1);
       de->name[MAX_NAME_LEN - 1] = '\0';
       de->elementType = element_type;
@@ -517,89 +517,89 @@ bool loadDataElementsFromJson(const char *json_path) {
          de->type = (ValueType)cJSON_GetNumberValue(type_obj);
 
          switch (de->type) {
-         case TYPE_STRING:
-         case TYPE_DATETIME:
-         case TYPE_BASE64:
-            de->value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
-            if (!de->value.strVal) {
-               fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
-               goto load_fail;
-            }
-            break;
-         case TYPE_INT:
-            if (value_obj && cJSON_IsNumber(value_obj)) {
-               double val = cJSON_GetNumberValue(value_obj);
-               if (val >= INT32_MIN && val <= INT32_MAX) {
-                  de->value.intVal = (int32_t)val;
-               } else {
-                  fprintf(stderr, "Value out of range for TYPE_INT at item %d\n", i);
+            case TYPE_STRING:
+            case TYPE_DATETIME:
+            case TYPE_BASE64:
+               de->value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
+               if (!de->value.strVal) {
+                  fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
                   goto load_fail;
                }
-            } else {
-               de->value.intVal = 0;
-            }
-            break;
-         case TYPE_UINT:
-            if (value_obj && cJSON_IsNumber(value_obj)) {
-               double val = cJSON_GetNumberValue(value_obj);
-               if (val >= 0 && val <= UINT32_MAX) {
-                  de->value.uintVal = (uint32_t)val;
+               break;
+            case TYPE_INT:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= INT32_MIN && val <= INT32_MAX) {
+                     de->value.intVal = (int32_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_INT at item %d\n", i);
+                     goto load_fail;
+                  }
                } else {
-                  fprintf(stderr, "Value out of range for TYPE_UINT at item %d\n", i);
-                  goto load_fail;
+                  de->value.intVal = 0;
                }
-            } else {
-               de->value.uintVal = 0;
-            }
-            break;
-         case TYPE_BOOL:
-            de->value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
-            break;
-         case TYPE_LONG:
-            if (value_obj && cJSON_IsNumber(value_obj)) {
-               double val = cJSON_GetNumberValue(value_obj);
-               if (val >= INT64_MIN && val <= INT64_MAX) {
-                  de->value.longVal = (int64_t)val;
+               break;
+            case TYPE_UINT:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= 0 && val <= UINT32_MAX) {
+                     de->value.uintVal = (uint32_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_UINT at item %d\n", i);
+                     goto load_fail;
+                  }
                } else {
-                  fprintf(stderr, "Value out of range for TYPE_LONG at item %d\n", i);
-                  goto load_fail;
+                  de->value.uintVal = 0;
                }
-            } else {
-               de->value.longVal = 0;
-            }
-            break;
-         case TYPE_ULONG:
-            if (value_obj && cJSON_IsNumber(value_obj)) {
-               double val = cJSON_GetNumberValue(value_obj);
-               if (val >= 0 && val <= UINT64_MAX) {
-                  de->value.ulongVal = (uint64_t)val;
+               break;
+            case TYPE_BOOL:
+               de->value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
+               break;
+            case TYPE_LONG:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= INT64_MIN && val <= INT64_MAX) {
+                     de->value.longVal = (int64_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_LONG at item %d\n", i);
+                     goto load_fail;
+                  }
                } else {
-                  fprintf(stderr, "Value out of range for TYPE_ULONG at item %d\n", i);
-                  goto load_fail;
+                  de->value.longVal = 0;
                }
-            } else {
-               de->value.ulongVal = 0;
-            }
-            break;
-         case TYPE_FLOAT:
-            de->value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
-            break;
-         case TYPE_DOUBLE:
-            de->value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
-            break;
-         case TYPE_BYTE:
-            if (value_obj && cJSON_IsNumber(value_obj)) {
-               double val = cJSON_GetNumberValue(value_obj);
-               if (val >= 0 && val <= UINT8_MAX) {
-                  de->value.byteVal = (uint8_t)val;
+               break;
+            case TYPE_ULONG:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= 0 && val <= UINT64_MAX) {
+                     de->value.ulongVal = (uint64_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_ULONG at item %d\n", i);
+                     goto load_fail;
+                  }
                } else {
-                  fprintf(stderr, "Value out of range for TYPE_BYTE at item %d\n", i);
-                  goto load_fail;
+                  de->value.ulongVal = 0;
                }
-            } else {
-               de->value.byteVal = 0;
-            }
-            break;
+               break;
+            case TYPE_FLOAT:
+               de->value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
+               break;
+            case TYPE_DOUBLE:
+               de->value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
+               break;
+            case TYPE_BYTE:
+               if (value_obj && cJSON_IsNumber(value_obj)) {
+                  double val = cJSON_GetNumberValue(value_obj);
+                  if (val >= 0 && val <= UINT8_MAX) {
+                     de->value.byteVal = (uint8_t)val;
+                  } else {
+                     fprintf(stderr, "Value out of range for TYPE_BYTE at item %d\n", i);
+                     goto load_fail;
+                  }
+               } else {
+                  de->value.byteVal = 0;
+               }
+               break;
          }
       } else {
          de->type = TYPE_STRING;
@@ -623,7 +623,7 @@ bool loadDataElementsFromJson(const char *json_path) {
    }
 
    for (int j = 0; j < hard_num; j++, g_numElements++) {
-      DataElement *de = &g_internalDataElements[g_numElements];
+      DataElement* de = &g_internalDataElements[g_numElements];
       strncpy(de->name, gDataElements[j].name, MAX_NAME_LEN - 1);
       de->name[MAX_NAME_LEN - 1] = '\0';
       de->elementType = gDataElements[j].elementType;
@@ -695,9 +695,9 @@ static void cleanup(void) {
    // Free tables
    for (int i = 0; i < g_num_tables; i++) {
       for (int j = 0; j < g_tables[i].num_rows; j++) {
-         RowProperty *p = g_tables[i].rows[j].props;
+         RowProperty* p = g_tables[i].rows[j].props;
          while (p) {
-            RowProperty *next = p->next;
+            RowProperty* next = p->next;
             if (IS_STRING_TYPE(p->type)) {
                free(p->value.strVal);
             }
@@ -717,7 +717,7 @@ static void cleanup(void) {
    }
 }
 
-void ensure_table(const char *table_wild) {
+void ensure_table(const char* table_wild) {
    if (!table_wild || strlen(table_wild) == 0) return;
 
    // Check if table exists
@@ -732,7 +732,7 @@ void ensure_table(const char *table_wild) {
    if (exists) return;
 
    // Recurse on parent
-   char *parent = get_parent_table(table_wild);
+   char* parent = get_parent_table(table_wild);
    if (parent) {
       ensure_table(parent);
       free(parent);
@@ -744,7 +744,7 @@ void ensure_table(const char *table_wild) {
       fprintf(stderr, "Failed to allocate memory for data models\n");
       return;
    }
-   DataElement *de = &g_internalDataElements[g_numElements];
+   DataElement* de = &g_internalDataElements[g_numElements];
    strncpy(de->name, table_wild, MAX_NAME_LEN - 1);
    de->name[MAX_NAME_LEN - 1] = '\0';
    de->elementType = RBUS_ELEMENT_TYPE_TABLE;
@@ -759,7 +759,7 @@ void ensure_table(const char *table_wild) {
    g_numElements++;
 
    // Add NumberOfEntries property
-   char *base = strdup(table_wild);
+   char* base = strdup(table_wild);
    if (base[strlen(base) - 1] == '.') base[strlen(base) - 1] = '\0';
    char num_name[MAX_NAME_LEN];
    snprintf(num_name, MAX_NAME_LEN, "%s%s", base, TABLE_COUNT_PROP);
@@ -796,8 +796,8 @@ void ensure_table(const char *table_wild) {
 }
 
 static int num_table_max = 0;
-static TableMaxInst *table_max = NULL;
-static void update_max(const char *t_name, uint32_t inst) {
+static TableMaxInst* table_max = NULL;
+static void update_max(const char* t_name, uint32_t inst) {
    for (int k = 0; k < num_table_max; k++) {
       if (strcmp(table_max[k].name, t_name) == 0) {
          if (inst > table_max[k].max_inst) table_max[k].max_inst = inst;
@@ -810,18 +810,18 @@ static void update_max(const char *t_name, uint32_t inst) {
    num_table_max++;
 }
 
-static void ensure_inst(const char *c_table, uint32_t c_inst) {
+static void ensure_inst(const char* c_table, uint32_t c_inst) {
    if (!c_table) return;
    update_max(c_table, c_inst);
    uint32_t p_inst = 0;
-   char *p_table = get_parent_concrete(c_table, &p_inst);
+   char* p_table = get_parent_concrete(c_table, &p_inst);
    if (p_table) {
       ensure_inst(p_table, p_inst);
    }
    free(p_table);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
 
    // Set up signal handlers
    signal(SIGINT, signal_handler);
@@ -841,7 +841,7 @@ int main(int argc, char *argv[]) {
       return 1;
    }
 
-   g_dataElements = (rbusDataElement_t *)malloc(g_totalElements * sizeof(rbusDataElement_t));
+   g_dataElements = (rbusDataElement_t*)malloc(g_totalElements * sizeof(rbusDataElement_t));
    if (!g_dataElements) {
       fprintf(stderr, "Failed to allocate memory for data elements\n");
       cleanup();
@@ -874,7 +874,7 @@ int main(int argc, char *argv[]) {
    printf("Successfully registered %d data elements\n", g_totalElements);
 
    for (int i = 0; i < sizeof(gMethodElements) / sizeof(DataElement); i++) {
-      const DataElement *method = &gMethodElements[i];
+      const DataElement* method = &gMethodElements[i];
       registerMethod(g_rbusHandle, method);
    }
 
@@ -892,11 +892,11 @@ int main(int argc, char *argv[]) {
 
    // Add initial rows
    for (int k = 0; k < num_table_max; k++) {
-      char *tbl = table_max[k].name;
+      char* tbl = table_max[k].name;
       int max = table_max[k].max_inst;
 
       // Find or create TableDef
-      TableDef *table = NULL;
+      TableDef* table = NULL;
       for (int i = 0; i < g_num_tables; i++) {
          if (strcmp(g_tables[i].name, tbl) == 0) {
             table = &g_tables[i];
@@ -915,7 +915,7 @@ int main(int argc, char *argv[]) {
 
       for (uint32_t m = table->next_inst; m <= max; m++) {
          table->rows = realloc(table->rows, (table->num_rows + 1) * sizeof(TableRow));
-         TableRow *row = &table->rows[table->num_rows];
+         TableRow* row = &table->rows[table->num_rows];
          snprintf(row->name, MAX_NAME_LEN, "%s", tbl);
          row->instNum = m;
          row->alias[0] = '\0';
@@ -940,35 +940,35 @@ int main(int argc, char *argv[]) {
       rbusValue_t val;
       rbusValue_Init(&val);
       switch (g_initial_values[j].type) {
-      case TYPE_STRING:
-      case TYPE_DATETIME:
-      case TYPE_BASE64:
-         rbusValue_SetString(val, g_initial_values[j].value.strVal);
-         break;
-      case TYPE_INT:
-         rbusValue_SetInt32(val, g_initial_values[j].value.intVal);
-         break;
-      case TYPE_UINT:
-         rbusValue_SetUInt32(val, g_initial_values[j].value.uintVal);
-         break;
-      case TYPE_BOOL:
-         rbusValue_SetBoolean(val, g_initial_values[j].value.boolVal);
-         break;
-      case TYPE_LONG:
-         rbusValue_SetInt64(val, g_initial_values[j].value.longVal);
-         break;
-      case TYPE_ULONG:
-         rbusValue_SetUInt64(val, g_initial_values[j].value.ulongVal);
-         break;
-      case TYPE_FLOAT:
-         rbusValue_SetSingle(val, g_initial_values[j].value.floatVal);
-         break;
-      case TYPE_DOUBLE:
-         rbusValue_SetDouble(val, g_initial_values[j].value.doubleVal);
-         break;
-      case TYPE_BYTE:
-         rbusValue_SetByte(val, g_initial_values[j].value.byteVal);
-         break;
+         case TYPE_STRING:
+         case TYPE_DATETIME:
+         case TYPE_BASE64:
+            rbusValue_SetString(val, g_initial_values[j].value.strVal);
+            break;
+         case TYPE_INT:
+            rbusValue_SetInt32(val, g_initial_values[j].value.intVal);
+            break;
+         case TYPE_UINT:
+            rbusValue_SetUInt32(val, g_initial_values[j].value.uintVal);
+            break;
+         case TYPE_BOOL:
+            rbusValue_SetBoolean(val, g_initial_values[j].value.boolVal);
+            break;
+         case TYPE_LONG:
+            rbusValue_SetInt64(val, g_initial_values[j].value.longVal);
+            break;
+         case TYPE_ULONG:
+            rbusValue_SetUInt64(val, g_initial_values[j].value.ulongVal);
+            break;
+         case TYPE_FLOAT:
+            rbusValue_SetSingle(val, g_initial_values[j].value.floatVal);
+            break;
+         case TYPE_DOUBLE:
+            rbusValue_SetDouble(val, g_initial_values[j].value.doubleVal);
+            break;
+         case TYPE_BYTE:
+            rbusValue_SetByte(val, g_initial_values[j].value.byteVal);
+            break;
       }
 
       rbusSetOptions_t opts = {.commit = true};
@@ -998,35 +998,35 @@ int main(int argc, char *argv[]) {
          rbusValue_t value;
          rbusValue_Init(&value);
          switch (g_internalDataElements[i].type) {
-         case TYPE_STRING:
-         case TYPE_DATETIME:
-         case TYPE_BASE64:
-            rbusValue_SetString(value, g_internalDataElements[i].value.strVal);
-            break;
-         case TYPE_INT:
-            rbusValue_SetInt32(value, g_internalDataElements[i].value.intVal);
-            break;
-         case TYPE_UINT:
-            rbusValue_SetUInt32(value, g_internalDataElements[i].value.uintVal);
-            break;
-         case TYPE_BOOL:
-            rbusValue_SetBoolean(value, g_internalDataElements[i].value.boolVal);
-            break;
-         case TYPE_LONG:
-            rbusValue_SetInt64(value, g_internalDataElements[i].value.longVal);
-            break;
-         case TYPE_ULONG:
-            rbusValue_SetUInt64(value, g_internalDataElements[i].value.ulongVal);
-            break;
-         case TYPE_FLOAT:
-            rbusValue_SetSingle(value, g_internalDataElements[i].value.floatVal);
-            break;
-         case TYPE_DOUBLE:
-            rbusValue_SetDouble(value, g_internalDataElements[i].value.doubleVal);
-            break;
-         case TYPE_BYTE:
-            rbusValue_SetByte(value, g_internalDataElements[i].value.byteVal);
-            break;
+            case TYPE_STRING:
+            case TYPE_DATETIME:
+            case TYPE_BASE64:
+               rbusValue_SetString(value, g_internalDataElements[i].value.strVal);
+               break;
+            case TYPE_INT:
+               rbusValue_SetInt32(value, g_internalDataElements[i].value.intVal);
+               break;
+            case TYPE_UINT:
+               rbusValue_SetUInt32(value, g_internalDataElements[i].value.uintVal);
+               break;
+            case TYPE_BOOL:
+               rbusValue_SetBoolean(value, g_internalDataElements[i].value.boolVal);
+               break;
+            case TYPE_LONG:
+               rbusValue_SetInt64(value, g_internalDataElements[i].value.longVal);
+               break;
+            case TYPE_ULONG:
+               rbusValue_SetUInt64(value, g_internalDataElements[i].value.ulongVal);
+               break;
+            case TYPE_FLOAT:
+               rbusValue_SetSingle(value, g_internalDataElements[i].value.floatVal);
+               break;
+            case TYPE_DOUBLE:
+               rbusValue_SetDouble(value, g_internalDataElements[i].value.doubleVal);
+               break;
+            case TYPE_BYTE:
+               rbusValue_SetByte(value, g_internalDataElements[i].value.byteVal);
+               break;
          }
 
          rbusSetOptions_t opts = {.commit = true};

@@ -22968,5 +22968,11 @@
       "name": "Device.X_RDK_WanManager.InterfaceAvailableStatus",
       "value": "DOCSIS1,0|DSL1,1|ETH3,0|GPON1,0|LTE1,1",
       "type": 0
+   },
+   {
+      "name": "Device.X_RDK_WebConfig.webcfgSubdocForceReset",
+      "elementType": "event",
+      "value": "",
+      "type": 0
    }
 ]

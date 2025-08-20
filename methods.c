@@ -1,31 +1,31 @@
 #include "rbus_elements.h"
 
 
-void registerMethod(rbusHandle_t handle, const DataElement *method) {
-   rbusDataElement_t elements[] = {{(char *)method->name, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, method->methodHandler}}};
+void registerMethod(rbusHandle_t handle, const DataElement* method) {
+   rbusDataElement_t elements[] = {{(char*)method->name, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, method->methodHandler}}};
    rbus_regDataElements(handle, 1, elements);
 }
 
-rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+rbusError_t system_reboot_method(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
 
    int32_t delay = 0;
-   const char *delaystr = NULL;
+   const char* delaystr = NULL;
    rbusValue_t delayVal = rbusObject_GetValue(inParams, "Delay");
    rbusValueType_t delay_type = rbusValue_GetType(delayVal);
 
    switch (delay_type) {
-   case RBUS_INT32:
-      delay = rbusValue_GetInt32(delayVal);
-      break;
-   case RBUS_INT64:
-      delay = (int32_t)rbusValue_GetInt64(delayVal);
-      break;
-   case RBUS_STRING:
-      delaystr = rbusValue_GetString(delayVal, NULL);
-      delay = atoi(delaystr);
-      break;
-   default:
-      break;
+      case RBUS_INT32:
+         delay = rbusValue_GetInt32(delayVal);
+         break;
+      case RBUS_INT64:
+         delay = (int32_t)rbusValue_GetInt64(delayVal);
+         break;
+      case RBUS_STRING:
+         delaystr = rbusValue_GetString(delayVal, NULL);
+         delay = atoi(delaystr);
+         break;
+      default:
+         break;
    }
 
    if (delay < 0) {
@@ -45,7 +45,7 @@ rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodName, rb
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_system_info_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+rbusError_t get_system_info_method(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
    rbusValue_t serialVal, timeVal, uptimeVal;
    rbusValue_Init(&serialVal);
    rbusValue_Init(&timeVal);
@@ -74,14 +74,14 @@ rbusError_t get_system_info_method(rbusHandle_t handle, const char *methodName, 
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
    // Validate required parameters
-   rbusValue_t msgTypeVal = rbusObject_GetValue(inParams, "Msg_Type");
-   rbusValue_t sourceVal = rbusObject_GetValue(inParams, "Source");
-   rbusValue_t destVal = rbusObject_GetValue(inParams, "Dest");
+   rbusValue_t msgTypeVal = rbusObject_GetValue(inParams, "msg_type");
+   rbusValue_t sourceVal = rbusObject_GetValue(inParams, "source");
+   rbusValue_t destVal = rbusObject_GetValue(inParams, "dest");
 
    // Set default msg_type to 4 if not provided
-   const char *msg_type_str = "4";
+   const char* msg_type_str = "4";
    if (msgTypeVal) {
       if (rbusValue_GetType(msgTypeVal) == RBUS_INT32) {
          if (rbusValue_GetInt32(msgTypeVal) != 4) {
@@ -131,9 +131,9 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *method
    }
 
    // Extract optional parameters
-   const char *source = rbusValue_GetString(sourceVal, NULL);
-   const char *dest = rbusValue_GetString(destVal, NULL);
-   const char *content_type = NULL;
+   const char* source = rbusValue_GetString(sourceVal, NULL);
+   const char* dest = rbusValue_GetString(destVal, NULL);
+   const char* content_type = NULL;
    rbusValue_t contentTypeVal = rbusObject_GetValue(inParams, "content_type");
    if (contentTypeVal && rbusValue_GetType(contentTypeVal) == RBUS_STRING) {
       content_type = rbusValue_GetString(contentTypeVal, NULL);
@@ -149,7 +149,7 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *method
    rbusValue_t rdrVal = rbusObject_GetValue(inParams, "rdr");
 
    // Log the event (in a real implementation, this would forward to Xmidt)
-   fprintf(stderr, "Simple Event Received:\n");
+   fprintf(stderr, "\nEvent Received:\n");
    fprintf(stderr, "  Method: %s\n", methodName);
    fprintf(stderr, "  msg_type: %s\n", msg_type_str);
    fprintf(stderr, "  source: %s\n", source);
@@ -199,7 +199,7 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *method
          rbusProperty_t prop = rbusObject_GetProperties(metadataObj);
          bool first = true;
          while (prop) {
-            const char *key = rbusProperty_GetName(prop);
+            const char* key = rbusProperty_GetName(prop);
             rbusValue_t val = rbusProperty_GetValue(prop);
             if (key && val && rbusValue_GetType(val) == RBUS_STRING) {
                fprintf(stderr, "%s%s: %s", first ? "" : ", ", key, rbusValue_GetString(val, NULL));
@@ -239,12 +239,14 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char *method
    rbusObject_SetValue(outParams, "status", resultVal);
    rbusValue_Release(resultVal);
 
+#if 0   
    // Publish an RBUS event to simulate Xmidt event forwarding
    rbusEvent_t event = {.name = dest, .type = RBUS_EVENT_GENERAL, .data = inParams};
    rbusError_t rc = rbusEvent_Publish(handle, &event);
    if (rc != RBUS_ERROR_SUCCESS) {
       fprintf(stderr, "Failed to publish event to %s: %d\n", dest, rc);
    }
+#endif 
 
    return RBUS_ERROR_SUCCESS;
 }

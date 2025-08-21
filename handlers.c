@@ -1,35 +1,35 @@
 #include "rbus_elements.h"
 
 extern int g_totalElements;
-extern DataElement *g_internalDataElements;
+extern DataElement* g_internalDataElements;
 extern int g_num_tables;
-extern TableDef *g_tables;
+extern TableDef* g_tables;
 extern rbusHandle_t g_rbusHandle;
 
-char *get_table_name(const char *name, uint32_t *instance, char **property_name) {
-   char *dup = strdup(name);
+char* get_table_name(const char* name, uint32_t* instance, char** property_name) {
+   char* dup = strdup(name);
    if (!dup) return NULL;
    int num_segments = 0;
-   char *temp = dup;
+   char* temp = dup;
    while (*temp) {
       if (*temp++ == '.') num_segments++;
    }
    num_segments++; // number of segments = dots +1
-   char **segments = malloc(num_segments * sizeof(char *));
+   char** segments = malloc(num_segments * sizeof(char*));
    if (!segments) {
       free(dup);
       return NULL;
    }
    temp = dup;
    int i = 0;
-   char *token;
+   char* token;
    while ((token = strsep(&temp, ".")) != NULL) {
       segments[i++] = token;
    }
    // now find rightmost i where segments[i] is number
    int inst_index = -1;
    for (int j = num_segments - 1; j >= 0; j--) {
-      char *endptr;
+      char* endptr;
       errno = 0;
       unsigned long val = strtoul(segments[j], &endptr, 10);
       if (errno == 0 && *endptr == '\0' && val > 0 && val <= UINT32_MAX && segments[j][0] != '\0') {
@@ -48,13 +48,13 @@ char *get_table_name(const char *name, uint32_t *instance, char **property_name)
    for (int j = 0; j < inst_index; j++) {
       table_len += strlen(segments[j]) + 1;
    }
-   char *table = malloc(table_len + 1); // +1 for null
+   char* table = malloc(table_len + 1); // +1 for null
    if (!table) {
       free(segments);
       free(dup);
       return NULL;
    }
-   char *p = table;
+   char* p = table;
    for (int j = 0; j < inst_index; j++) {
       strcpy(p, segments[j]);
       p += strlen(segments[j]);
@@ -87,15 +87,15 @@ char *get_table_name(const char *name, uint32_t *instance, char **property_name)
    return table;
 }
 
-rbusError_t getTableHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   const char *name = rbusProperty_GetName(property);
+rbusError_t getTableHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   const char* name = rbusProperty_GetName(property);
 
    char table_name[MAX_NAME_LEN];
    strncpy(table_name, name, MAX_NAME_LEN);
    int slen = strlen(table_name);
    table_name[slen - strlen(TABLE_COUNT_PROP)] = '.';
    table_name[slen - strlen(TABLE_COUNT_PROP) + 1] = '\0';
-   TableDef *table = NULL;
+   TableDef* table = NULL;
    for (int i = 0; i < g_num_tables; i++) {
       if (strcmp(g_tables[i].name, table_name) == 0) {
          table = &g_tables[i];
@@ -115,13 +115,13 @@ rbusError_t getTableHandler(rbusHandle_t handle, rbusProperty_t property, rbusGe
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t table_add_row(rbusHandle_t handle, const char *tableName, const char *aliasName, uint32_t *instNum) {
+rbusError_t table_add_row(rbusHandle_t handle, const char* tableName, const char* aliasName, uint32_t* instNum) {
    if (!tableName || !instNum) {
       return RBUS_ERROR_INVALID_INPUT;
    }
 
    // Find or create TableDef
-   TableDef *table = NULL;
+   TableDef* table = NULL;
    for (int i = 0; i < g_num_tables; i++) {
       if (strcmp(g_tables[i].name, tableName) == 0) {
          table = &g_tables[i];
@@ -147,7 +147,7 @@ rbusError_t table_add_row(rbusHandle_t handle, const char *tableName, const char
    }
 
    table->rows = realloc(table->rows, (table->num_rows + 1) * sizeof(TableRow));
-   TableRow *row = &table->rows[table->num_rows];
+   TableRow* row = &table->rows[table->num_rows];
    snprintf(row->name, MAX_NAME_LEN, "%s%u.", tableName, table->next_inst);
    row->instNum = table->next_inst++;
    table->num_inst++;
@@ -162,7 +162,7 @@ rbusError_t table_add_row(rbusHandle_t handle, const char *tableName, const char
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
+rbusError_t table_remove_row(rbusHandle_t handle, const char* rowName) {
    if (!rowName) {
       return RBUS_ERROR_INVALID_INPUT;
    }
@@ -172,30 +172,30 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
       return RBUS_ERROR_INVALID_INPUT;
    }
 
-   char *buf = strdup(rowName);
+   char* buf = strdup(rowName);
    if (!buf) {
       return RBUS_ERROR_OUT_OF_RESOURCES;
    }
 
    buf[len - 1] = '\0';  // Remove trailing dot
 
-   char *last_dot = strrchr(buf, '.');
+   char* last_dot = strrchr(buf, '.');
    if (!last_dot) {
       free(buf);
       return RBUS_ERROR_INVALID_INPUT;
    }
 
-   char *inst_or_alias = last_dot + 1;
+   char* inst_or_alias = last_dot + 1;
    *last_dot = '\0';  // buf now holds the prefix before the instance or alias
 
    char tableName[MAX_NAME_LEN];
    snprintf(tableName, MAX_NAME_LEN, "%s.", buf);  // Reconstruct table name with trailing dot
 
    int instance = 0;
-   char *extracted_alias = NULL;
+   char* extracted_alias = NULL;
    bool is_numeric_inst = false;
 
-   char *endptr;
+   char* endptr;
    long inst_val = strtol(inst_or_alias, &endptr, 10);
    if (*endptr == '\0' && inst_val > 0 && inst_val <= INT32_MAX) {
       instance = (int)inst_val;
@@ -215,7 +215,7 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
    free(buf);
 
    // Find the table
-   TableDef *table = NULL;
+   TableDef* table = NULL;
    for (int i = 0; i < g_num_tables; i++) {
       if (strcmp(g_tables[i].name, tableName) == 0) {
          table = &g_tables[i];
@@ -251,9 +251,9 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
    }
 
    // Free row properties
-   RowProperty *p = table->rows[row_index].props;
+   RowProperty* p = table->rows[row_index].props;
    while (p) {
-      RowProperty *next = p->next;
+      RowProperty* next = p->next;
       if (IS_STRING_TYPE(p->type)) {
          free(p->value.strVal);
       }
@@ -280,7 +280,7 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char *rowName) {
    return RBUS_ERROR_SUCCESS;
 }
 
-void valueChangeHandler(rbusHandle_t handle, rbusEvent_t const *event, rbusEventSubscription_t *subscription) {
+void valueChangeHandler(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription) {
    rbusValue_t newValue = rbusObject_GetValue(event->data, "value");
    if (!newValue) {
       fprintf(stderr, "Value change event for %s: No new value provided\n", event->name);
@@ -288,56 +288,56 @@ void valueChangeHandler(rbusHandle_t handle, rbusEvent_t const *event, rbusEvent
    }
 
    switch (rbusValue_GetType(newValue)) {
-   case RBUS_STRING: {
-      char *str = rbusValue_ToString(newValue, NULL, 0);
-      fprintf(stderr, "Value changed for %s: %s\n", event->name, str);
-      free(str);
-      break;
-   }
-   case RBUS_INT32:
-      fprintf(stderr, "Value changed for %s: %d\n", event->name, rbusValue_GetInt32(newValue));
-      break;
-   case RBUS_UINT32:
-      fprintf(stderr, "Value changed for %s: %u\n", event->name, rbusValue_GetUInt32(newValue));
-      break;
-   case RBUS_BOOLEAN:
-      fprintf(stderr, "Value changed for %s: %s\n", event->name, rbusValue_GetBoolean(newValue) ? "true" : "false");
-      break;
-   case RBUS_INT64:
-      fprintf(stderr, "Value changed for %s: %lld\n", event->name, (long long)rbusValue_GetInt64(newValue));
-      break;
-   case RBUS_UINT64:
-      fprintf(stderr, "Value changed for %s: %llu\n", event->name, (unsigned long long)rbusValue_GetUInt64(newValue));
-      break;
-   case RBUS_SINGLE:
-      fprintf(stderr, "Value changed for %s: %f\n", event->name, rbusValue_GetSingle(newValue));
-      break;
-   case RBUS_DOUBLE:
-      fprintf(stderr, "Value changed for %s: %lf\n", event->name, rbusValue_GetDouble(newValue));
-      break;
-   case RBUS_BYTE:
-      fprintf(stderr, "Value changed for %s: %u\n", event->name, rbusValue_GetByte(newValue));
-      break;
-   default:
-      fprintf(stderr, "Value changed for %s: Unsupported type\n", event->name);
-      break;
+      case RBUS_STRING: {
+         char* str = rbusValue_ToString(newValue, NULL, 0);
+         fprintf(stderr, "Value changed for %s: %s\n", event->name, str);
+         free(str);
+         break;
+      }
+      case RBUS_INT32:
+         fprintf(stderr, "Value changed for %s: %d\n", event->name, rbusValue_GetInt32(newValue));
+         break;
+      case RBUS_UINT32:
+         fprintf(stderr, "Value changed for %s: %u\n", event->name, rbusValue_GetUInt32(newValue));
+         break;
+      case RBUS_BOOLEAN:
+         fprintf(stderr, "Value changed for %s: %s\n", event->name, rbusValue_GetBoolean(newValue) ? "true" : "false");
+         break;
+      case RBUS_INT64:
+         fprintf(stderr, "Value changed for %s: %lld\n", event->name, (long long)rbusValue_GetInt64(newValue));
+         break;
+      case RBUS_UINT64:
+         fprintf(stderr, "Value changed for %s: %llu\n", event->name, (unsigned long long)rbusValue_GetUInt64(newValue));
+         break;
+      case RBUS_SINGLE:
+         fprintf(stderr, "Value changed for %s: %f\n", event->name, rbusValue_GetSingle(newValue));
+         break;
+      case RBUS_DOUBLE:
+         fprintf(stderr, "Value changed for %s: %lf\n", event->name, rbusValue_GetDouble(newValue));
+         break;
+      case RBUS_BYTE:
+         fprintf(stderr, "Value changed for %s: %u\n", event->name, rbusValue_GetByte(newValue));
+         break;
+      default:
+         fprintf(stderr, "Value changed for %s: Unsupported type\n", event->name);
+         break;
    }
 }
 
-rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char *eventName, rbusFilter_t filter, int32_t interval, bool *autoPublish) {
+rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish) {
    fprintf(stderr, "Event subscription handler called for %s, action: %s\n", eventName,
       action == RBUS_EVENT_ACTION_SUBSCRIBE ? "subscribe" : "unsubscribe");
-   if (autoPublish) {
-      *autoPublish = false; // Provider handles event publishing
-   }
+
+   *autoPublish = true;
+
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
-   const char *name = rbusProperty_GetName(property);
+rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   const char* name = rbusProperty_GetName(property);
    uint32_t inst;
-   char *prop;
-   char *tbl = get_table_name(name, &inst, &prop);
+   char* prop;
+   char* tbl = get_table_name(name, &inst, &prop);
    if (tbl == NULL) {
       // Normal property
       for (int i = 0; i < g_totalElements; i++) {
@@ -345,35 +345,35 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
             rbusValue_t value;
             rbusValue_Init(&value);
             switch (g_internalDataElements[i].type) {
-            case TYPE_STRING:
-            case TYPE_DATETIME:
-            case TYPE_BASE64:
-               rbusValue_SetString(value, g_internalDataElements[i].value.strVal);
-               break;
-            case TYPE_INT:
-               rbusValue_SetInt32(value, g_internalDataElements[i].value.intVal);
-               break;
-            case TYPE_UINT:
-               rbusValue_SetUInt32(value, g_internalDataElements[i].value.uintVal);
-               break;
-            case TYPE_BOOL:
-               rbusValue_SetBoolean(value, g_internalDataElements[i].value.boolVal);
-               break;
-            case TYPE_LONG:
-               rbusValue_SetInt64(value, g_internalDataElements[i].value.longVal);
-               break;
-            case TYPE_ULONG:
-               rbusValue_SetUInt64(value, g_internalDataElements[i].value.ulongVal);
-               break;
-            case TYPE_FLOAT:
-               rbusValue_SetSingle(value, g_internalDataElements[i].value.floatVal);
-               break;
-            case TYPE_DOUBLE:
-               rbusValue_SetDouble(value, g_internalDataElements[i].value.doubleVal);
-               break;
-            case TYPE_BYTE:
-               rbusValue_SetByte(value, g_internalDataElements[i].value.byteVal);
-               break;
+               case TYPE_STRING:
+               case TYPE_DATETIME:
+               case TYPE_BASE64:
+                  rbusValue_SetString(value, g_internalDataElements[i].value.strVal);
+                  break;
+               case TYPE_INT:
+                  rbusValue_SetInt32(value, g_internalDataElements[i].value.intVal);
+                  break;
+               case TYPE_UINT:
+                  rbusValue_SetUInt32(value, g_internalDataElements[i].value.uintVal);
+                  break;
+               case TYPE_BOOL:
+                  rbusValue_SetBoolean(value, g_internalDataElements[i].value.boolVal);
+                  break;
+               case TYPE_LONG:
+                  rbusValue_SetInt64(value, g_internalDataElements[i].value.longVal);
+                  break;
+               case TYPE_ULONG:
+                  rbusValue_SetUInt64(value, g_internalDataElements[i].value.ulongVal);
+                  break;
+               case TYPE_FLOAT:
+                  rbusValue_SetSingle(value, g_internalDataElements[i].value.floatVal);
+                  break;
+               case TYPE_DOUBLE:
+                  rbusValue_SetDouble(value, g_internalDataElements[i].value.doubleVal);
+                  break;
+               case TYPE_BYTE:
+                  rbusValue_SetByte(value, g_internalDataElements[i].value.byteVal);
+                  break;
             }
             rbusProperty_SetValue(property, value);
             rbusValue_Release(value);
@@ -383,7 +383,7 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
       return RBUS_ERROR_INVALID_INPUT;
    } else {
       // Row property
-      TableDef *table = NULL;
+      TableDef* table = NULL;
       for (int i = 0; i < g_num_tables; i++) {
          if (strcmp(g_tables[i].name, tbl) == 0) {
             table = &g_tables[i];
@@ -396,7 +396,7 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
          return RBUS_ERROR_BUS_ERROR;
       }
 
-      TableRow *row = NULL;
+      TableRow* row = NULL;
       for (int i = 0; i < table->num_rows; i++) {
          if (table->rows[i].instNum == inst) {
             row = &table->rows[i];
@@ -409,7 +409,7 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
          return RBUS_ERROR_BUS_ERROR;
       }
 
-      RowProperty *p = row->props;
+      RowProperty* p = row->props;
       while (p) {
          if (strcmp(p->name, prop) == 0) {
             break;
@@ -421,7 +421,7 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
          // Add with default
          char wildcard[MAX_NAME_LEN];
          snprintf(wildcard, MAX_NAME_LEN, "%s{i}.%s", tbl, prop);
-         DataElement *de = NULL;
+         DataElement* de = NULL;
          for (int i = 0; i < g_totalElements; i++) {
             if (strcmp(g_internalDataElements[i].name, wildcard) == 0 && g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
                de = &g_internalDataElements[i];
@@ -434,7 +434,7 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
             return RBUS_ERROR_BUS_ERROR;
          }
 
-         p = (RowProperty *)malloc(sizeof(RowProperty));
+         p = (RowProperty*)malloc(sizeof(RowProperty));
          if (!p) {
             free(tbl);
             free(prop);
@@ -444,17 +444,17 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
          strcpy(p->name, prop);
          p->type = de->type;
          switch (p->type) {
-         case TYPE_STRING:
-         case TYPE_DATETIME:
-         case TYPE_BASE64:
-            p->value.strVal = strdup("");
-            break;
-         case TYPE_BOOL:
-            p->value.boolVal = false;
-            break;
-         default:
-            memset(&p->value, 0, sizeof(p->value));
-            break;
+            case TYPE_STRING:
+            case TYPE_DATETIME:
+            case TYPE_BASE64:
+               p->value.strVal = strdup("");
+               break;
+            case TYPE_BOOL:
+               p->value.boolVal = false;
+               break;
+            default:
+               memset(&p->value, 0, sizeof(p->value));
+               break;
          }
          p->next = row->props;
          row->props = p;
@@ -463,35 +463,35 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
       rbusValue_t value;
       rbusValue_Init(&value);
       switch (p->type) {
-      case TYPE_STRING:
-      case TYPE_DATETIME:
-      case TYPE_BASE64:
-         rbusValue_SetString(value, p->value.strVal);
-         break;
-      case TYPE_INT:
-         rbusValue_SetInt32(value, p->value.intVal);
-         break;
-      case TYPE_UINT:
-         rbusValue_SetUInt32(value, p->value.uintVal);
-         break;
-      case TYPE_BOOL:
-         rbusValue_SetBoolean(value, p->value.boolVal);
-         break;
-      case TYPE_LONG:
-         rbusValue_SetInt64(value, p->value.longVal);
-         break;
-      case TYPE_ULONG:
-         rbusValue_SetUInt64(value, p->value.ulongVal);
-         break;
-      case TYPE_FLOAT:
-         rbusValue_SetSingle(value, p->value.floatVal);
-         break;
-      case TYPE_DOUBLE:
-         rbusValue_SetDouble(value, p->value.doubleVal);
-         break;
-      case TYPE_BYTE:
-         rbusValue_SetByte(value, p->value.byteVal);
-         break;
+         case TYPE_STRING:
+         case TYPE_DATETIME:
+         case TYPE_BASE64:
+            rbusValue_SetString(value, p->value.strVal);
+            break;
+         case TYPE_INT:
+            rbusValue_SetInt32(value, p->value.intVal);
+            break;
+         case TYPE_UINT:
+            rbusValue_SetUInt32(value, p->value.uintVal);
+            break;
+         case TYPE_BOOL:
+            rbusValue_SetBoolean(value, p->value.boolVal);
+            break;
+         case TYPE_LONG:
+            rbusValue_SetInt64(value, p->value.longVal);
+            break;
+         case TYPE_ULONG:
+            rbusValue_SetUInt64(value, p->value.ulongVal);
+            break;
+         case TYPE_FLOAT:
+            rbusValue_SetSingle(value, p->value.floatVal);
+            break;
+         case TYPE_DOUBLE:
+            rbusValue_SetDouble(value, p->value.doubleVal);
+            break;
+         case TYPE_BYTE:
+            rbusValue_SetByte(value, p->value.byteVal);
+            break;
       }
       rbusProperty_SetValue(property, value);
       rbusValue_Release(value);
@@ -501,13 +501,13 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
    }
 }
 
-rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t *options) {
-   const char *name = rbusProperty_GetName(property);
+rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* options) {
+   const char* name = rbusProperty_GetName(property);
 
    rbusValue_t value = rbusProperty_GetValue(property);
    uint32_t inst;
-   char *prop;
-   char *tbl = get_table_name(name, &inst, &prop);
+   char* prop;
+   char* tbl = get_table_name(name, &inst, &prop);
    if (tbl == NULL) {
       // Normal property
       for (int i = 0; i < g_totalElements; i++) {
@@ -537,32 +537,32 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
                }
             } else {
                switch (type) {
-               case TYPE_INT:
-                  g_internalDataElements[i].value.intVal = rbusValue_GetInt32(value);
-                  break;
-               case TYPE_UINT:
-                  g_internalDataElements[i].value.uintVal = rbusValue_GetUInt32(value);
-                  break;
-               case TYPE_BOOL:
-                  g_internalDataElements[i].value.boolVal = rbusValue_GetBoolean(value);
-                  break;
-               case TYPE_LONG:
-                  g_internalDataElements[i].value.longVal = rbusValue_GetInt64(value);
-                  break;
-               case TYPE_ULONG:
-                  g_internalDataElements[i].value.ulongVal = rbusValue_GetUInt64(value);
-                  break;
-               case TYPE_FLOAT:
-                  g_internalDataElements[i].value.floatVal = rbusValue_GetSingle(value);
-                  break;
-               case TYPE_DOUBLE:
-                  g_internalDataElements[i].value.doubleVal = rbusValue_GetDouble(value);
-                  break;
-               case TYPE_BYTE:
-                  g_internalDataElements[i].value.byteVal = rbusValue_GetByte(value);
-                  break;
-               default:
-                  break;
+                  case TYPE_INT:
+                     g_internalDataElements[i].value.intVal = rbusValue_GetInt32(value);
+                     break;
+                  case TYPE_UINT:
+                     g_internalDataElements[i].value.uintVal = rbusValue_GetUInt32(value);
+                     break;
+                  case TYPE_BOOL:
+                     g_internalDataElements[i].value.boolVal = rbusValue_GetBoolean(value);
+                     break;
+                  case TYPE_LONG:
+                     g_internalDataElements[i].value.longVal = rbusValue_GetInt64(value);
+                     break;
+                  case TYPE_ULONG:
+                     g_internalDataElements[i].value.ulongVal = rbusValue_GetUInt64(value);
+                     break;
+                  case TYPE_FLOAT:
+                     g_internalDataElements[i].value.floatVal = rbusValue_GetSingle(value);
+                     break;
+                  case TYPE_DOUBLE:
+                     g_internalDataElements[i].value.doubleVal = rbusValue_GetDouble(value);
+                     break;
+                  case TYPE_BYTE:
+                     g_internalDataElements[i].value.byteVal = rbusValue_GetByte(value);
+                     break;
+                  default:
+                     break;
                }
             }
             return RBUS_ERROR_SUCCESS;
@@ -571,7 +571,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
       return RBUS_ERROR_INVALID_INPUT;
    } else {
       // Row property
-      TableDef *table = NULL;
+      TableDef* table = NULL;
       for (int i = 0; i < g_num_tables; i++) {
          if (strcmp(g_tables[i].name, tbl) == 0) {
             table = &g_tables[i];
@@ -584,7 +584,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
          return RBUS_ERROR_BUS_ERROR;
       }
 
-      TableRow *row = NULL;
+      TableRow* row = NULL;
       for (int i = 0; i < table->num_rows; i++) {
          if (table->rows[i].instNum == inst) {
             row = &table->rows[i];
@@ -597,8 +597,8 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
          return RBUS_ERROR_BUS_ERROR;
       }
 
-      RowProperty *p = row->props;
-      RowProperty *prev = NULL;
+      RowProperty* p = row->props;
+      RowProperty* prev = NULL;
       while (p) {
          if (strcmp(p->name, prop) == 0) {
             break;
@@ -609,8 +609,8 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
 
       ValueType type;
       if (!p) {
-         char *wildcard = create_wildcard(name);
-         DataElement *de = NULL;
+         char* wildcard = create_wildcard(name);
+         DataElement* de = NULL;
          for (int i = 0; i < g_totalElements; i++) {
             if (strcmp(g_internalDataElements[i].name, wildcard) == 0 && g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
                de = &g_internalDataElements[i];
@@ -624,7 +624,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
             return RBUS_ERROR_BUS_ERROR;
          }
 
-         p = (RowProperty *)malloc(sizeof(RowProperty));
+         p = (RowProperty*)malloc(sizeof(RowProperty));
          if (!p) {
             free(tbl);
             free(prop);
@@ -673,32 +673,32 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
          }
       } else {
          switch (type) {
-         case TYPE_INT:
-            p->value.intVal = rbusValue_GetInt32(value);
-            break;
-         case TYPE_UINT:
-            p->value.uintVal = rbusValue_GetUInt32(value);
-            break;
-         case TYPE_BOOL:
-            p->value.boolVal = rbusValue_GetBoolean(value);
-            break;
-         case TYPE_LONG:
-            p->value.longVal = rbusValue_GetInt64(value);
-            break;
-         case TYPE_ULONG:
-            p->value.ulongVal = rbusValue_GetUInt64(value);
-            break;
-         case TYPE_FLOAT:
-            p->value.floatVal = rbusValue_GetSingle(value);
-            break;
-         case TYPE_DOUBLE:
-            p->value.doubleVal = rbusValue_GetDouble(value);
-            break;
-         case TYPE_BYTE:
-            p->value.byteVal = rbusValue_GetByte(value);
-            break;
-         default:
-            break;
+            case TYPE_INT:
+               p->value.intVal = rbusValue_GetInt32(value);
+               break;
+            case TYPE_UINT:
+               p->value.uintVal = rbusValue_GetUInt32(value);
+               break;
+            case TYPE_BOOL:
+               p->value.boolVal = rbusValue_GetBoolean(value);
+               break;
+            case TYPE_LONG:
+               p->value.longVal = rbusValue_GetInt64(value);
+               break;
+            case TYPE_ULONG:
+               p->value.ulongVal = rbusValue_GetUInt64(value);
+               break;
+            case TYPE_FLOAT:
+               p->value.floatVal = rbusValue_GetSingle(value);
+               break;
+            case TYPE_DOUBLE:
+               p->value.doubleVal = rbusValue_GetDouble(value);
+               break;
+            case TYPE_BYTE:
+               p->value.byteVal = rbusValue_GetByte(value);
+               break;
+            default:
+               break;
          }
       }
       free(tbl);

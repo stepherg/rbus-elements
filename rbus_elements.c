@@ -44,6 +44,14 @@ static const DataElement gDataElements[] = {
       .setHandler = NULL,
    },
    {
+      .name = "Device.DeviceInfo.X_COMCAST-COM_STB_IP",
+      .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
+      .type = TYPE_STRING,
+      .value.strVal = "unknown",
+      .getHandler = get_first_ip,
+      .setHandler = NULL,
+   },
+   {
       .name = "Device.DeviceInfo.X_RDKCENTRAL-COM_SystemTime",
       .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
       .type = TYPE_STRING,
@@ -61,6 +69,14 @@ static const DataElement gDataElements[] = {
    },
    {
       .name = "Device.DeviceInfo.X_COMCAST-COM_WAN_MAC",
+      .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
+      .type = TYPE_STRING,
+      .value.strVal = "unknown",
+      .getHandler = get_mac_address,
+      .setHandler = NULL,
+   },
+   {
+      .name = "Device.DeviceInfo.X_COMCAST-COM_STB_MAC",
       .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
       .type = TYPE_STRING,
       .value.strVal = "unknown",
@@ -148,7 +164,7 @@ static const DataElement gMethodElements[] = {
       .elementType = RBUS_ELEMENT_TYPE_METHOD,
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
-      .methodHandler = device_x_rdk_xmidt_send_data,
+      .methodHandler = device_telemetry_collect,
       .methodArgs = {
          .numInputArgs = 2,
          .inputArgs = (char* []){"Msg_Type", "Source", "Dest"},

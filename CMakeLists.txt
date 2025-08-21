@@ -17,6 +17,8 @@ if(APPLE)
   endif()
 endif()
 
+find_library(JANSSON_LIBRARY NAMES jansson)
+
 find_library(RBUS_LIBRARY NAMES rbus)
 find_library(RBUS_CORE_LIBRARY NAMES rbuscore)
 find_path(
@@ -61,7 +63,7 @@ target_include_directories(
   rbus_elements PRIVATE ${RBUS_INCLUDE_DIR} ${RTMSG_INCLUDE_DIR}
                         ${CJSON_INCLUDE_DIR})
 target_link_libraries(
-  rbus_elements PRIVATE ${RBUS_LIBRARY} ${RBUS_CORE_LIBRARY} ${CJSON_LIBRARY})
+  rbus_elements PRIVATE ${RBUS_LIBRARY} ${RBUS_CORE_LIBRARY} ${CJSON_LIBRARY} ${JANSSON_LIBRARY})
 file(COPY ${CMAKE_SOURCE_DIR}/elements.json DESTINATION ${CMAKE_BINARY_DIR})
 
 install(TARGETS rbus_elements DESTINATION bin)

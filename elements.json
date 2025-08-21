@@ -6355,6 +6355,11 @@
       "type": 0
    },
    {
+      "name": "Device.DeviceInfo.X_COMCAST-COM_FirmwareFilename",
+      "value": "rdkb_simulator_0130175806_1.241.2.4.img",
+      "type": 0
+   },
+   {
       "name": "Device.DeviceInfo.X_CISCO_COM_ProcessorSpeed",
       "value": "1503",
       "type": 0
@@ -6786,7 +6791,7 @@
    },
    {
       "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.ConfigURL",
-      "value": "http://xconf:9092/loguploader/getT2Settings",
+      "value": "http://xconfui:9092/loguploader/getT2Settings",
       "type": 0
    },
    {
@@ -22973,6 +22978,21 @@
       "name": "Device.X_RDK_WebConfig.webcfgSubdocForceReset",
       "elementType": "event",
       "value": "",
+      "type": 0
+   },
+   {
+      "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.MTLS.Enable",
+      "value": "false",
+      "type": 3
+   },
+   {
+      "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.PartnerName",
+      "value": "Comcast",
+      "type": 0
+   },
+   {
+      "name": "Device.DeviceInfo.X_RDKCENTRAL-COM.IUI.Version",
+      "value": "0.1",
       "type": 0
    }
 ]

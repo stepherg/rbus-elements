@@ -1,5 +1,17 @@
 #include "rbus_elements.h"
+#include <jansson.h>
 
+static bool is_check(rbusObject_t obj) {
+   rbusProperty_t prop = rbusObject_GetProperties(obj);
+   while (prop) {
+      const char* name = rbusProperty_GetName(prop);
+      if (strcmp(name, "check") == 0) {
+         return true;
+      }
+      prop = rbusProperty_GetNext(prop);
+   }
+   return false;
+}
 
 void registerMethod(rbusHandle_t handle, const DataElement* method) {
    rbusDataElement_t elements[] = {{(char*)method->name, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, method->methodHandler}}};
@@ -74,7 +86,12 @@ rbusError_t get_system_info_method(rbusHandle_t handle, const char* methodName, 
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+rbusError_t device_telemetry_collect(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+
+   if (is_check(inParams)) {
+      return RBUS_ERROR_SUCCESS;
+   }
+
    // Validate required parameters
    rbusValue_t msgTypeVal = rbusObject_GetValue(inParams, "msg_type");
    rbusValue_t sourceVal = rbusObject_GetValue(inParams, "source");
@@ -211,9 +228,6 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char* method
       }
    }
 
-   if (payloadVal && rbusValue_GetType(payloadVal) == RBUS_STRING) {
-      fprintf(stderr, "  payload: %s\n", rbusValue_GetString(payloadVal, NULL));
-   }
    if (sessionIdVal && rbusValue_GetType(sessionIdVal) == RBUS_STRING) {
       fprintf(stderr, "  session_id: %s\n", rbusValue_GetString(sessionIdVal, NULL));
    }
@@ -230,6 +244,20 @@ rbusError_t device_x_rdk_xmidt_send_data(rbusHandle_t handle, const char* method
    }
    if (rdrVal && rbusValue_GetType(rdrVal) == RBUS_INT32) {
       fprintf(stderr, "  rdr: %d\n", rbusValue_GetInt32(rdrVal));
+   }
+
+   if (payloadVal && rbusValue_GetType(payloadVal) == RBUS_STRING) {
+      const char* payload = rbusValue_GetString(payloadVal, NULL);
+      json_error_t error;
+      json_t* obj = json_loads(payload, 0, &error);
+      if (obj) {
+         fprintf(stderr, "payload:\n");
+         json_dumpf(obj, stderr, JSON_INDENT(2));         
+         json_decref(obj);
+         fprintf(stderr, "\n\n");
+      } else {
+         fprintf(stderr, "  payload: %s\n\n", payload);
+      }
    }
 
    // Set response

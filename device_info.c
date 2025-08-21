@@ -1,4 +1,12 @@
 #include "rbus_elements.h"
+#include <ifaddrs.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 
 // Memory cache for optimization
 typedef struct {
@@ -41,7 +49,7 @@ static bool update_memory_cache(void) {
    g_mem_cache.free = (vm_stat.free_count + vm_stat.inactive_count) * page_size / 1024;
    g_mem_cache.used = (vm_stat.active_count + vm_stat.wire_count) * page_size / 1024;
 #else
-   FILE *fp = fopen("/proc/meminfo", "r");
+   FILE* fp = fopen("/proc/meminfo", "r");
    if (!fp) {
       return false;
    }
@@ -71,7 +79,7 @@ static bool update_memory_cache(void) {
    return true;
 }
 
-rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -104,7 +112,7 @@ rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t propert
       return RBUS_ERROR_BUS_ERROR;
    }
 
-   char *serial = (char *)malloc(maxSize);
+   char* serial = (char*)malloc(maxSize);
    if (!serial) {
       CFRelease(serialNumber);
       rbusValue_Release(value);
@@ -145,8 +153,8 @@ rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t propert
       return RBUS_ERROR_BUS_ERROR;
    }
 
-   struct ifreq *it = ifc.ifc_req;
-   const struct ifreq *const end = it + (ifc.ifc_len / sizeof(struct ifreq));
+   struct ifreq* it = ifc.ifc_req;
+   const struct ifreq* const end = it + (ifc.ifc_len / sizeof(struct ifreq));
 
    for (; it != end; ++it) {
       strcpy(ifr.ifr_name, it->ifr_name);
@@ -154,7 +162,7 @@ rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t propert
          // Skip loopback interfaces
          if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
             if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
-               unsigned char *mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
+               unsigned char* mac = (unsigned char*)ifr.ifr_hwaddr.sa_data;
                int ret = snprintf(mac_str, sizeof(mac_str),
                   "%02X%02X%02X%02X%02X%02X",
                   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -186,7 +194,7 @@ rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t propert
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_system_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_system_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -210,7 +218,7 @@ rbusError_t get_system_time(rbusHandle_t handle, rbusProperty_t property, rbusGe
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_system_uptime(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_system_uptime(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -232,7 +240,7 @@ rbusError_t get_system_uptime(rbusHandle_t handle, rbusProperty_t property, rbus
 
    uint32_t uptime_seconds = (now.tv_sec - boottime.tv_sec);
 #else
-   FILE *fp = fopen("/proc/uptime", "r");
+   FILE* fp = fopen("/proc/uptime", "r");
    if (!fp) {
       rbusValue_Release(value);
       return RBUS_ERROR_BUS_ERROR;
@@ -258,7 +266,7 @@ rbusError_t get_system_uptime(rbusHandle_t handle, rbusProperty_t property, rbus
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -294,7 +302,7 @@ rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGe
                   kCFAllocatorDefault,
                   0);
                if (macData) {
-                  const UInt8 *bytes = CFDataGetBytePtr(macData);
+                  const UInt8* bytes = CFDataGetBytePtr(macData);
                   int ret = snprintf(mac_str, sizeof(mac_str),
                      "%02x:%02x:%02x:%02x:%02x:%02x",
                      bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
@@ -347,8 +355,8 @@ rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGe
       return RBUS_ERROR_BUS_ERROR;
    }
 
-   struct ifreq *it = ifc.ifc_req;
-   const struct ifreq *const end = it + (ifc.ifc_len / sizeof(struct ifreq));
+   struct ifreq* it = ifc.ifc_req;
+   const struct ifreq* const end = it + (ifc.ifc_len / sizeof(struct ifreq));
 
    for (; it != end; ++it) {
       strcpy(ifr.ifr_name, it->ifr_name);
@@ -356,7 +364,7 @@ rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGe
          // Skip loopback interfaces
          if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
             if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
-               unsigned char *mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
+               unsigned char* mac = (unsigned char*)ifr.ifr_hwaddr.sa_data;
                int ret = snprintf(mac_str, sizeof(mac_str),
                   "%02x:%02x:%02x:%02x:%02x:%02x",
                   mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -387,7 +395,7 @@ rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGe
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_memory_free(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_memory_free(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -402,7 +410,7 @@ rbusError_t get_memory_free(rbusHandle_t handle, rbusProperty_t property, rbusGe
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_memory_used(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_memory_used(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -418,7 +426,7 @@ rbusError_t get_memory_used(rbusHandle_t handle, rbusProperty_t property, rbusGe
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_memory_total(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_memory_total(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -434,7 +442,7 @@ rbusError_t get_memory_total(rbusHandle_t handle, rbusProperty_t property, rbusG
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_local_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_local_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -447,7 +455,7 @@ rbusError_t get_local_time(rbusHandle_t handle, rbusProperty_t property, rbusGet
 
    // Convert to local time
    struct tm time_struct;
-   struct tm *timeinfo = localtime_r(&rawtime, &time_struct);
+   struct tm* timeinfo = localtime_r(&rawtime, &time_struct);
    if (!timeinfo) {
       rbusValue_Release(value);
       return RBUS_ERROR_BUS_ERROR;
@@ -467,7 +475,7 @@ rbusError_t get_local_time(rbusHandle_t handle, rbusProperty_t property, rbusGet
    return RBUS_ERROR_SUCCESS;
 }
 
-rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t *options) {
+rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
 
    rbusValue_t value;
    rbusValue_Init(&value);
@@ -504,7 +512,7 @@ rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, r
                   kCFAllocatorDefault,
                   0);
                if (macData) {
-                  const UInt8 *bytes = CFDataGetBytePtr(macData);
+                  const UInt8* bytes = CFDataGetBytePtr(macData);
                   int ret = snprintf(oui_str, sizeof(oui_str),
                      "%02X%02X%02X",
                      bytes[0], bytes[1], bytes[2]);
@@ -556,8 +564,8 @@ rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, r
       return RBUS_ERROR_BUS_ERROR;
    }
 
-   struct ifreq *it = ifc.ifc_req;
-   const struct ifreq *const end = it + (ifc.ifc_len / sizeof(struct ifreq));
+   struct ifreq* it = ifc.ifc_req;
+   const struct ifreq* const end = it + (ifc.ifc_len / sizeof(struct ifreq));
 
    for (; it != end; ++it) {
       strcpy(ifr.ifr_name, it->ifr_name);
@@ -565,7 +573,7 @@ rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, r
          // Skip loopback interfaces
          if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
             if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
-               unsigned char *mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
+               unsigned char* mac = (unsigned char*)ifr.ifr_hwaddr.sa_data;
                int ret = snprintf(oui_str, sizeof(oui_str),
                   "%02X%02X%02X",
                   mac[0], mac[1], mac[2]);
@@ -595,3 +603,133 @@ rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, r
 
    return RBUS_ERROR_SUCCESS;
 }
+
+rbusError_t get_first_ip(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+
+   rbusValue_t value;
+   rbusValue_Init(&value);
+   char ip_str[18] = {0};
+
+   struct ifaddrs* ifas = NULL, * ifa = NULL;
+   int fam_order[2] = {AF_INET, AF_INET6};
+   fam_order[0] = AF_INET; fam_order[1] = AF_UNSPEC;
+
+   if (getifaddrs(&ifas) != 0)
+      return RBUS_ERROR_BUS_ERROR;
+
+   int rc = -1;
+   for (int pass = 0; pass < 2 && rc != 0; ++pass) {
+      int want = fam_order[pass];
+      if (want == AF_UNSPEC) break;
+
+      for (ifa = ifas; ifa != NULL; ifa = ifa->ifa_next) {
+         if (!ifa->ifa_addr) continue;
+
+         // Skip interfaces that are down or are loopback.
+         unsigned int flags = ifa->ifa_flags;
+         if (!(flags & IFF_UP)) continue;
+         if (flags & IFF_LOOPBACK) continue;
+
+         int fam = ifa->ifa_addr->sa_family;
+         if (fam != want) continue;
+
+         // Convert to numeric string.
+         char host[NI_MAXHOST];
+         if (getnameinfo(ifa->ifa_addr,
+            (fam == AF_INET) ? sizeof(struct sockaddr_in)
+            : sizeof(struct sockaddr_in6),
+            host, sizeof(host),
+            NULL, 0, NI_NUMERICHOST) != 0) {
+            continue;
+         }
+
+         // Extra paranoia: exclude 127.0.0.0/8 and ::1 if they sneak through.
+         if (fam == AF_INET) {
+            struct sockaddr_in* sin = (struct sockaddr_in*)ifa->ifa_addr;
+            uint32_t addr = ntohl(sin->sin_addr.s_addr);
+            if ((addr >> 24) == 127) continue; // 127.x.x.x
+         } else if (fam == AF_INET6) {
+            struct sockaddr_in6* sin6 = (struct sockaddr_in6*)ifa->ifa_addr;
+            static const struct in6_addr loop6 = IN6ADDR_LOOPBACK_INIT;
+            if (memcmp(&sin6->sin6_addr, &loop6, sizeof(loop6)) == 0) continue;
+         }
+
+         // Success.
+         strncpy(ip_str, host, sizeof(ip_str));
+         ip_str[sizeof(ip_str) - 1] = '\0';
+         rc = 0;
+         break;
+      }
+   }
+
+   freeifaddrs(ifas);
+
+   rbusValue_SetString(value, ip_str);
+   rbusProperty_SetValue(property, value);
+   rbusValue_Release(value);
+
+   return RBUS_ERROR_SUCCESS;
+}
+
+#if 0
+int get_first_non_localhost_ip(char* out, size_t outlen, int allow_v6) {
+   if (!out || outlen == 0) return -1;
+
+   struct ifaddrs* ifas = NULL, * ifa = NULL;
+   int fam_order[2] = {AF_INET, AF_INET6};
+   if (allow_v6) { fam_order[0] = AF_INET; fam_order[1] = AF_INET6; } else { fam_order[0] = AF_INET; fam_order[1] = AF_UNSPEC; }
+
+   if (getifaddrs(&ifas) != 0)
+      return -1;
+
+   int rc = -1;
+
+   for (int pass = 0; pass < 2 && rc != 0; ++pass) {
+      int want = fam_order[pass];
+      if (want == AF_UNSPEC) break;
+
+      for (ifa = ifas; ifa != NULL; ifa = ifa->ifa_next) {
+         if (!ifa->ifa_addr) continue;
+
+         // Skip interfaces that are down or are loopback.
+         unsigned int flags = ifa->ifa_flags;
+         if (!(flags & IFF_UP)) continue;
+         if (flags & IFF_LOOPBACK) continue;
+
+         int fam = ifa->ifa_addr->sa_family;
+         if (fam != want) continue;
+
+         // Convert to numeric string.
+         char host[NI_MAXHOST];
+         if (getnameinfo(ifa->ifa_addr,
+            (fam == AF_INET) ? sizeof(struct sockaddr_in)
+            : sizeof(struct sockaddr_in6),
+            host, sizeof(host),
+            NULL, 0, NI_NUMERICHOST) != 0) {
+            continue;
+         }
+
+         // Extra paranoia: exclude 127.0.0.0/8 and ::1 if they sneak through.
+         if (fam == AF_INET) {
+            struct sockaddr_in* sin = (struct sockaddr_in*)ifa->ifa_addr;
+            uint32_t addr = ntohl(sin->sin_addr.s_addr);
+            if ((addr >> 24) == 127) continue; // 127.x.x.x
+         } else if (fam == AF_INET6) {
+            struct sockaddr_in6* sin6 = (struct sockaddr_in6*)ifa->ifa_addr;
+            static const struct in6_addr loop6 = IN6ADDR_LOOPBACK_INIT;
+            if (memcmp(&sin6->sin6_addr, &loop6, sizeof(loop6)) == 0) continue;
+         }
+
+         // Success.
+         strncpy(out, host, outlen);
+         out[outlen - 1] = '\0';
+         rc = 0;
+         break;
+      }
+   }
+
+   freeifaddrs(ifas);
+   return rc;
+}
+
+#endif

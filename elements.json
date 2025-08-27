@@ -6531,12 +6531,12 @@
    },
    {
       "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Control.XconfSelector",
-      "value": "prod",
+      "value": "dev",
       "type": 0
    },
    {
       "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Control.XconfUrl",
-      "value": "http://xconf:9092/featureControl/getSettings",
+      "value": "http://xconfwebconfig:9000/featureControl/getSettings",
       "type": 0
    },
    {
@@ -6631,7 +6631,7 @@
    },
    {
       "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.FWUpdate.AutoExcluded.XconfUrl",
-      "value": "https://xconf.xcal.tv/xconf/swu/stb",
+      "value": "http://xconfwebconfig:9000/xconf/swu/stb",
       "type": 0
    },
    {
@@ -6791,7 +6791,7 @@
    },
    {
       "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.ConfigURL",
-      "value": "http://xconfui:9092/loguploader/getT2Settings",
+      "value": "http://xconfwebconfig:9000/loguploader/getT2Settings",
       "type": 0
    },
    {

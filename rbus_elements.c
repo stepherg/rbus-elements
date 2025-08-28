@@ -52,6 +52,22 @@ static const DataElement gDataElements[] = {
       .setHandler = NULL,
    },
    {
+      .name = "Device.DeviceInfo.X_COMCAST-COM_WAN_IP",
+      .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
+      .type = TYPE_STRING,
+      .value.strVal = "unknown",
+      .getHandler = get_first_ip,
+      .setHandler = NULL,
+   },
+   {
+      .name = "Device.DeviceInfo.X_COMCAST-COM_CM_IP",
+      .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
+      .type = TYPE_STRING,
+      .value.strVal = "unknown",
+      .getHandler = get_first_ip,
+      .setHandler = NULL,
+   },
+   {
       .name = "Device.DeviceInfo.X_RDKCENTRAL-COM_SystemTime",
       .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
       .type = TYPE_STRING,
@@ -65,6 +81,14 @@ static const DataElement gDataElements[] = {
       .type = TYPE_UINT,
       .value.uintVal = 0,
       .getHandler = get_system_uptime,
+      .setHandler = NULL,
+   },
+   {
+      .name = "Device.DeviceInfo.X_COMCAST-COM_CM_MAC",
+      .elementType = RBUS_ELEMENT_TYPE_PROPERTY,
+      .type = TYPE_STRING,
+      .value.strVal = "unknown",
+      .getHandler = get_mac_address,
       .setHandler = NULL,
    },
    {
@@ -1054,6 +1078,8 @@ int main(int argc, char* argv[]) {
          rbusValue_Release(value);
       }
    }
+
+   system("touch /tmp/pam_initialized");
 
    while (g_running) {
       sleep(1);

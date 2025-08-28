@@ -6370,11 +6370,6 @@
       "type": 0
    },
    {
-      "name": "Device.DeviceInfo.X_COMCAST-COM_CM_IP",
-      "value": "",
-      "type": 0
-   },
-   {
       "name": "Device.DeviceInfo.X_COMCAST-COM_CM_IPv6",
       "value": "",
       "type": 0
@@ -6402,11 +6397,6 @@
    {
       "name": "Device.DeviceInfo.X_COMCAST-COM_MTA_MAC",
       "value": "8C:6A:8D:84:C6:B9",
-      "type": 0
-   },
-   {
-      "name": "Device.DeviceInfo.X_COMCAST-COM_WAN_IP",
-      "value": "192.168.50.67",
       "type": 0
    },
    {
@@ -22993,6 +22983,11 @@
    {
       "name": "Device.DeviceInfo.X_RDKCENTRAL-COM.IUI.Version",
       "value": "0.1",
+      "type": 0
+   },
+   {
+      "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Bootstrap.OsClass",
+      "value": "Unknown",
       "type": 0
    }
 ]

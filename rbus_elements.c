@@ -184,16 +184,16 @@ static const DataElement gMethodElements[] = {
       }
    },
    {
-      .name = "Device.Telemetry.Collect",
+      .name = "Device.Telemetry.Collect()",
       .elementType = RBUS_ELEMENT_TYPE_METHOD,
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = device_telemetry_collect,
       .methodArgs = {
          .numInputArgs = 2,
-         .inputArgs = (char* []){"Msg_Type", "Source", "Dest"},
+         .inputArgs = (char* []){"msg_type", "source", "dest"},
          .numOutputArgs = 1,
-         .outputArgs = (char* []){"OutParams"}
+         .outputArgs = (char* []){"outparams"}
       }
    }
 };

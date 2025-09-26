@@ -199,31 +199,42 @@ static const DataElement gMethodElements[] = {
 };
 
 char* create_wildcard(const char* name) {
+   if (!name) return NULL;
+   
    size_t len = strlen(name);
    char* result = malloc(len * 2 + 1);  // Safe upper bound
    if (!result) return NULL;
-   result[0] = '\0';
-
-   bool trailing_dot = (name[len - 1] == '.');
+   
+   bool trailing_dot = (len > 0 && name[len - 1] == '.');
    char* temp = strdup(name);
    if (!temp) {
       free(result);
       return NULL;
    }
 
+   char* result_ptr = result;
    char* token = strtok(temp, ".");
    bool first = true;
    while (token) {
-      if (!first) strcat(result, ".");
+      if (!first) {
+         *result_ptr++ = '.';
+      }
       if (is_digit_str(token)) {
-         strcat(result, "{i}");
+         strcpy(result_ptr, "{i}");
+         result_ptr += 3;
       } else {
-         strcat(result, token);
+         size_t token_len = strlen(token);
+         strcpy(result_ptr, token);
+         result_ptr += token_len;
       }
       first = false;
       token = strtok(NULL, ".");
    }
-   if (trailing_dot) strcat(result, ".");
+   if (trailing_dot) {
+      *result_ptr++ = '.';
+   }
+   *result_ptr = '\0';
+   
    free(temp);
    return result;
 }
@@ -486,16 +497,34 @@ bool loadDataElementsFromJson(const char* json_path) {
 
             // Add to initial_values
             initial_values = realloc(initial_values, (num_initial + 1) * sizeof(InitialRowValue));
+            if (!initial_values) {
+               fprintf(stderr, "Failed to allocate memory for initial values\n");
+               free(tbl);
+               free(prop);
+               goto load_fail;
+            }
             initial_values[num_initial] = iv;
             num_initial++;
 
             // Compute wildcards
             char* table_wild = create_wildcard(tbl);
+            if (!table_wild) {
+               fprintf(stderr, "Failed to create table wildcard\n");
+               free(tbl);
+               free(prop);
+               goto load_fail;
+            }
             ensure_table(table_wild);
             free(table_wild);
 
             // Add wildcard property if not present
             char* prop_wild = create_wildcard(name);
+            if (!prop_wild) {
+               fprintf(stderr, "Failed to create property wildcard\n");
+               free(tbl);
+               free(prop);
+               goto load_fail;
+            }
             bool prop_exists = false;
             for (int j = 0; j < g_numElements; j++) {
                if (strcmp(g_internalDataElements[j].name, prop_wild) == 0 && g_internalDataElements[j].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
@@ -845,7 +874,12 @@ static void update_max(const char* t_name, uint32_t inst) {
       }
    }
    table_max = realloc(table_max, (num_table_max + 1) * sizeof(TableMaxInst));
-   strcpy(table_max[num_table_max].name, t_name);
+   if (!table_max) {
+      fprintf(stderr, "Failed to allocate memory for table_max\n");
+      return;
+   }
+   strncpy(table_max[num_table_max].name, t_name, MAX_NAME_LEN - 1);
+   table_max[num_table_max].name[MAX_NAME_LEN - 1] = '\0';
    table_max[num_table_max].max_inst = inst;
    num_table_max++;
 }

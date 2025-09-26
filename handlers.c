@@ -7,25 +7,33 @@ extern TableDef* g_tables;
 extern rbusHandle_t g_rbusHandle;
 
 char* get_table_name(const char* name, uint32_t* instance, char** property_name) {
+   if (!name || !instance || !property_name) {
+      return NULL;
+   }
+   
    char* dup = strdup(name);
    if (!dup) return NULL;
+   
    int num_segments = 0;
    char* temp = dup;
    while (*temp) {
       if (*temp++ == '.') num_segments++;
    }
    num_segments++; // number of segments = dots +1
+   
    char** segments = malloc(num_segments * sizeof(char*));
    if (!segments) {
       free(dup);
       return NULL;
    }
+   
    temp = dup;
    int i = 0;
    char* token;
    while ((token = strsep(&temp, ".")) != NULL) {
       segments[i++] = token;
    }
+   
    // now find rightmost i where segments[i] is number
    int inst_index = -1;
    for (int j = num_segments - 1; j >= 0; j--) {
@@ -38,34 +46,42 @@ char* get_table_name(const char* name, uint32_t* instance, char** property_name)
          break;
       }
    }
-   if (inst_index == -1 || inst_index == num_segments - 1 || inst_index == 0) { // no instance, or instance is last (no property), or first (invalid)
+   
+   if (inst_index == -1 || inst_index == num_segments - 1 || inst_index == 0) { 
+      // no instance, or instance is last (no property), or first (invalid)
       free(segments);
       free(dup);
       return NULL;
    }
+   
    // now build table: segments 0 to inst_index-1 + '.'
    size_t table_len = 0;
    for (int j = 0; j < inst_index; j++) {
       table_len += strlen(segments[j]) + 1;
    }
+   
    char* table = malloc(table_len + 1); // +1 for null
    if (!table) {
       free(segments);
       free(dup);
       return NULL;
    }
+   
    char* p = table;
    for (int j = 0; j < inst_index; j++) {
+      size_t seg_len = strlen(segments[j]);
       strcpy(p, segments[j]);
-      p += strlen(segments[j]);
+      p += seg_len;
       *p++ = '.';
    }
    *p = '\0';
+   
    // now property: segments inst_index+1 to end, with .
    size_t prop_len = 0;
    for (int j = inst_index + 1; j < num_segments; j++) {
       prop_len += strlen(segments[j]) + (j < num_segments - 1 ? 1 : 0);
    }
+   
    *property_name = malloc(prop_len + 1);
    if (!*property_name) {
       free(table);
@@ -73,15 +89,18 @@ char* get_table_name(const char* name, uint32_t* instance, char** property_name)
       free(dup);
       return NULL;
    }
+   
    p = *property_name;
    for (int j = inst_index + 1; j < num_segments; j++) {
+      size_t seg_len = strlen(segments[j]);
       strcpy(p, segments[j]);
-      p += strlen(segments[j]);
+      p += seg_len;
       if (j < num_segments - 1) {
          *p++ = '.';
       }
    }
    *p = '\0';
+   
    free(segments);
    free(dup);
    return table;
@@ -89,12 +108,23 @@ char* get_table_name(const char* name, uint32_t* instance, char** property_name)
 
 rbusError_t getTableHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
    const char* name = rbusProperty_GetName(property);
+   if (!name) {
+      return RBUS_ERROR_INVALID_INPUT;
+   }
 
    char table_name[MAX_NAME_LEN];
-   strncpy(table_name, name, MAX_NAME_LEN);
+   strncpy(table_name, name, MAX_NAME_LEN - 1);
+   table_name[MAX_NAME_LEN - 1] = '\0';
    int slen = strlen(table_name);
-   table_name[slen - strlen(TABLE_COUNT_PROP)] = '.';
-   table_name[slen - strlen(TABLE_COUNT_PROP) + 1] = '\0';
+   int prop_len = strlen(TABLE_COUNT_PROP);
+   
+   // Ensure we don't underflow the buffer
+   if (slen <= prop_len) {
+      return RBUS_ERROR_INVALID_INPUT;
+   }
+   
+   table_name[slen - prop_len] = '.';
+   table_name[slen - prop_len + 1] = '\0';
    TableDef* table = NULL;
    for (int i = 0; i < g_num_tables; i++) {
       if (strcmp(g_tables[i].name, table_name) == 0) {
@@ -120,6 +150,11 @@ rbusError_t table_add_row(rbusHandle_t handle, const char* tableName, const char
       return RBUS_ERROR_INVALID_INPUT;
    }
 
+   // Validate table name length
+   if (strlen(tableName) >= MAX_NAME_LEN) {
+      return RBUS_ERROR_INVALID_INPUT;
+   }
+
    // Find or create TableDef
    TableDef* table = NULL;
    for (int i = 0; i < g_num_tables; i++) {
@@ -130,15 +165,24 @@ rbusError_t table_add_row(rbusHandle_t handle, const char* tableName, const char
    }
    if (!table) {
       g_tables = realloc(g_tables, (g_num_tables + 1) * sizeof(TableDef));
+      if (!g_tables) {
+         return RBUS_ERROR_OUT_OF_RESOURCES;
+      }
       table = &g_tables[g_num_tables++];
-      strcpy(table->name, tableName);
+      strncpy(table->name, tableName, MAX_NAME_LEN - 1);
+      table->name[MAX_NAME_LEN - 1] = '\0';
       table->rows = NULL;
       table->num_rows = 0;
       table->next_inst = 1;
+      table->num_inst = 0;
    }
 
    // Check for duplicate alias if provided
    if (aliasName && aliasName[0] != '\0') {
+      // Validate alias name length
+      if (strlen(aliasName) >= MAX_NAME_LEN) {
+         return RBUS_ERROR_INVALID_INPUT;
+      }
       for (int j = 0; j < table->num_rows; j++) {
          if (strcmp(table->rows[j].alias, aliasName) == 0) {
             return RBUS_ERROR_ELEMENT_NAME_DUPLICATE;
@@ -146,7 +190,15 @@ rbusError_t table_add_row(rbusHandle_t handle, const char* tableName, const char
       }
    }
 
+   // Check for integer overflow before incrementing instance number
+   if (table->next_inst == UINT32_MAX) {
+      return RBUS_ERROR_OUT_OF_RESOURCES;
+   }
+
    table->rows = realloc(table->rows, (table->num_rows + 1) * sizeof(TableRow));
+   if (!table->rows) {
+      return RBUS_ERROR_OUT_OF_RESOURCES;
+   }
    TableRow* row = &table->rows[table->num_rows];
    snprintf(row->name, MAX_NAME_LEN, "%s%u.", tableName, table->next_inst);
    row->instNum = table->next_inst++;
@@ -438,16 +490,23 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
          if (!p) {
             free(tbl);
             free(prop);
-            return RBUS_ERROR_BUS_ERROR;
+            return RBUS_ERROR_OUT_OF_RESOURCES;
          }
 
-         strcpy(p->name, prop);
+         strncpy(p->name, prop, MAX_NAME_LEN - 1);
+         p->name[MAX_NAME_LEN - 1] = '\0';
          p->type = de->type;
          switch (p->type) {
             case TYPE_STRING:
             case TYPE_DATETIME:
             case TYPE_BASE64:
                p->value.strVal = strdup("");
+               if (!p->value.strVal) {
+                  free(p);
+                  free(tbl);
+                  free(prop);
+                  return RBUS_ERROR_OUT_OF_RESOURCES;
+               }
                break;
             case TYPE_BOOL:
                p->value.boolVal = false;
@@ -629,10 +688,11 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
             free(tbl);
             free(prop);
             free(wildcard);
-            return RBUS_ERROR_BUS_ERROR;
+            return RBUS_ERROR_OUT_OF_RESOURCES;
          }
 
-         strcpy(p->name, prop);
+         strncpy(p->name, prop, MAX_NAME_LEN - 1);
+         p->name[MAX_NAME_LEN - 1] = '\0';
          p->type = de->type;
          memset(&p->value, 0, sizeof(p->value));
          p->next = NULL;

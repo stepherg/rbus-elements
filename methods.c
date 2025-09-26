@@ -14,16 +14,26 @@ static bool is_check(rbusObject_t obj) {
 }
 
 void registerMethod(rbusHandle_t handle, const DataElement* method) {
-   rbusDataElement_t elements[] = {{(char*)method->name, RBUS_ELEMENT_TYPE_METHOD, {NULL, NULL, NULL, NULL, NULL, method->methodHandler}}};
-   rbus_regDataElements(handle, 1, elements);
+   rbusDataElement_t element = {(char*)method->name, RBUS_ELEMENT_TYPE_METHOD, {0}}; /* zero init cbTable */
+   /* Assign method handler post-init to avoid pedantic warning in aggregate initializer */
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wpedantic"
+#endif
+   element.cbTable.methodHandler = method->methodHandler;
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+   rbus_regDataElements(handle, 1, &element);
 }
 
 rbusError_t system_reboot_method(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+   (void)handle; (void)methodName; (void)asyncHandle;
 
    int32_t delay = 0;
    const char* delaystr = NULL;
    rbusValue_t delayVal = rbusObject_GetValue(inParams, "Delay");
-   rbusValueType_t delay_type = rbusValue_GetType(delayVal);
+   rbusValueType_t delay_type = delayVal ? rbusValue_GetType(delayVal) : RBUS_NONE;
 
    switch (delay_type) {
       case RBUS_INT32:
@@ -37,7 +47,7 @@ rbusError_t system_reboot_method(rbusHandle_t handle, const char* methodName, rb
          delay = atoi(delaystr);
          break;
       default:
-         break;
+         break; /* ignore unsupported types */
    }
 
    if (delay < 0) {
@@ -58,6 +68,7 @@ rbusError_t system_reboot_method(rbusHandle_t handle, const char* methodName, rb
 }
 
 rbusError_t get_system_info_method(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+   (void)methodName; (void)inParams; (void)asyncHandle;
    rbusValue_t serialVal, timeVal, uptimeVal;
    rbusValue_Init(&serialVal);
    rbusValue_Init(&timeVal);
@@ -87,6 +98,7 @@ rbusError_t get_system_info_method(rbusHandle_t handle, const char* methodName, 
 }
 
 rbusError_t device_telemetry_collect(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+   (void)handle; (void)asyncHandle;
 
    if (is_check(inParams)) {
       return RBUS_ERROR_SUCCESS;

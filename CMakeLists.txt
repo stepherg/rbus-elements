@@ -4,7 +4,7 @@ project(rbus_elements)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED YES)
 set(CMAKE_C_FLAGS
-   "${CMAKE_C_FLAGS} -Wall -Wno-unused-value -fno-asynchronous-unwind-tables -Wno-format-truncation -ffunction-sections -I ${CMAKE_SOURCE_DIR}"
+   "${CMAKE_C_FLAGS} -Wall -Wextra -Wpedantic -Wno-unused-value -fno-asynchronous-unwind-tables -Wno-format-truncation -ffunction-sections -I ${CMAKE_SOURCE_DIR}"
 )
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lm -ldl")
 

@@ -5,6 +5,8 @@ static int g_numElements = 0;
 int g_totalElements = 0;
 rbusHandle_t g_rbusHandle = NULL;
 static rbusDataElement_t* g_dataElements = NULL;
+ElementNode **g_element_buckets = NULL;
+size_t g_element_bucket_count = 0;
 static volatile sig_atomic_t g_running = 1;
 TableDef* g_tables = NULL;
 int g_num_tables = 0;
@@ -23,6 +25,7 @@ static int count_indices(const char* name);
 
 // Signal handler for SIGINT and SIGTERM
 static void signal_handler(int sig) {
+   (void)sig;
    g_running = 0;
 }
 
@@ -199,12 +202,14 @@ static const DataElement gMethodElements[] = {
 };
 
 char* create_wildcard(const char* name) {
+   if(!name || *name=='\0')
+      return NULL;
    size_t len = strlen(name);
-   char* result = malloc(len * 2 + 1);  // Safe upper bound
+   char* result = malloc(len * 2 + 1);  // Safe upper bound for inserting {i}
    if (!result) return NULL;
    result[0] = '\0';
 
-   bool trailing_dot = (name[len - 1] == '.');
+   bool trailing_dot = (len>0 && name[len - 1] == '.');
    char* temp = strdup(name);
    if (!temp) {
       free(result);
@@ -214,16 +219,16 @@ char* create_wildcard(const char* name) {
    char* token = strtok(temp, ".");
    bool first = true;
    while (token) {
-      if (!first) strcat(result, ".");
+      if (!first) strncat(result, ".", len * 2 + 1 - strlen(result) - 1);
       if (is_digit_str(token)) {
-         strcat(result, "{i}");
+         strncat(result, "{i}", len * 2 + 1 - strlen(result) - 1);
       } else {
-         strcat(result, token);
+         strncat(result, token, len * 2 + 1 - strlen(result) - 1);
       }
       first = false;
       token = strtok(NULL, ".");
    }
-   if (trailing_dot) strcat(result, ".");
+   if (trailing_dot) strncat(result, ".", len * 2 + 1 - strlen(result) - 1);
    free(temp);
    return result;
 }
@@ -280,6 +285,62 @@ static int compare_tables(const void* a, const void* b) {
    int da = count_indices(ta->name);
    int db = count_indices(tb->name);
    return da - db;
+}
+
+/* ------- Hash map for DataElement lookups ------- */
+static uint32_t hash_str(const char *s) {
+   /* FNV-1a 32-bit */
+   uint32_t h = 2166136261u;
+   for (; *s; ++s) {
+      h ^= (uint8_t)*s;
+      h *= 16777619u;
+   }
+   return h;
+}
+
+void free_element_index(void) {
+   if(!g_element_buckets) return;
+   for(size_t i=0;i<g_element_bucket_count;i++) {
+      ElementNode *n = g_element_buckets[i];
+      while(n) { ElementNode *next = n->next; free(n); n = next; }
+   }
+   free(g_element_buckets);
+   g_element_buckets = NULL;
+   g_element_bucket_count = 0;
+}
+
+void build_element_index(void) {
+   free_element_index();
+   /* choose bucket count as next power-of-two >= elements*2 for load factor <=0.5 */
+   size_t need = (size_t)g_totalElements * 2 + 1;
+   size_t cap = 1;
+   while(cap < need) cap <<= 1;
+   if(cap < 16) cap = 16;
+   g_element_bucket_count = cap;
+   g_element_buckets = calloc(g_element_bucket_count, sizeof(ElementNode*));
+   if(!g_element_buckets) { g_element_bucket_count = 0; return; }
+   for(int i=0;i<g_totalElements;i++) {
+      uint32_t h = hash_str(g_internalDataElements[i].name);
+      size_t idx = h & (g_element_bucket_count - 1);
+      ElementNode *node = malloc(sizeof(ElementNode));
+      if(!node) continue; /* skip on OOM */
+      node->key = g_internalDataElements[i].name;
+      node->element = &g_internalDataElements[i];
+      node->next = g_element_buckets[idx];
+      g_element_buckets[idx] = node;
+   }
+}
+
+DataElement *lookup_element(const char *name) {
+   if(!g_element_buckets || !name) return NULL;
+   uint32_t h = hash_str(name);
+   size_t idx = h & (g_element_bucket_count - 1);
+   ElementNode *n = g_element_buckets[idx];
+   while(n) {
+      if(strcmp(n->key, name)==0) return n->element;
+      n = n->next;
+   }
+   return NULL;
 }
 
 bool loadDataElementsFromJson(const char* json_path) {
@@ -656,11 +717,12 @@ bool loadDataElementsFromJson(const char* json_path) {
    // Add hard coded
    int hard_num = sizeof(gDataElements) / sizeof(DataElement);
    g_totalElements = g_numElements + hard_num;
-   g_internalDataElements = realloc(g_internalDataElements, g_totalElements * sizeof(DataElement));
-   if (!g_internalDataElements) {
+   void* tmp_realloc = realloc(g_internalDataElements, g_totalElements * sizeof(DataElement));
+   if (!tmp_realloc) {
       fprintf(stderr, "Failed to allocate memory for data models\n");
       goto load_fail;
    }
+   g_internalDataElements = tmp_realloc;
 
    for (int j = 0; j < hard_num; j++, g_numElements++) {
       DataElement* de = &g_internalDataElements[g_numElements];
@@ -716,6 +778,7 @@ load_fail:
 }
 
 static void cleanup(void) {
+   free_element_index();
    if (g_rbusHandle && g_dataElements && g_internalDataElements) {
       rbus_unregDataElements(g_rbusHandle, g_totalElements, g_dataElements);
       for (int i = 0; i < g_totalElements; i++) {
@@ -779,11 +842,12 @@ void ensure_table(const char* table_wild) {
    }
 
    // Add table
-   g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
-   if (!g_internalDataElements) {
+   void* tmp_realloc = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
+   if (!tmp_realloc) {
       fprintf(stderr, "Failed to allocate memory for data models\n");
       return;
    }
+   g_internalDataElements = tmp_realloc;
    DataElement* de = &g_internalDataElements[g_numElements];
    strncpy(de->name, table_wild, MAX_NAME_LEN - 1);
    de->name[MAX_NAME_LEN - 1] = '\0';
@@ -814,11 +878,12 @@ void ensure_table(const char* table_wild) {
       }
    }
    if (!num_exists) {
-      g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
-      if (!g_internalDataElements) {
+   void* tmp_realloc = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
+      if (!tmp_realloc) {
          fprintf(stderr, "Failed to allocate memory for data models\n");
          return;
       }
+      g_internalDataElements = tmp_realloc;
       de = &g_internalDataElements[g_numElements];
       strncpy(de->name, num_name, MAX_NAME_LEN - 1);
       de->name[MAX_NAME_LEN - 1] = '\0';
@@ -901,7 +966,15 @@ int main(int argc, char* argv[]) {
       g_dataElements[i].cbTable.tableAddRowHandler = g_internalDataElements[i].tableAddRowHandler;
       g_dataElements[i].cbTable.tableRemoveRowHandler = g_internalDataElements[i].tableRemoveRowHandler;
       g_dataElements[i].cbTable.eventSubHandler = g_internalDataElements[i].eventSubHandler ? g_internalDataElements[i].eventSubHandler : (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_EVENT || g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY ? eventSubHandler : NULL);
-      g_dataElements[i].cbTable.methodHandler = g_internalDataElements[i].methodHandler;
+   /* assign method handler after struct init; silence pedantic function pointer warning */
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+   g_dataElements[i].cbTable.methodHandler = g_internalDataElements[i].methodHandler;
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
    }
 
    rc = rbus_regDataElements(g_rbusHandle, g_totalElements, g_dataElements);
@@ -913,7 +986,9 @@ int main(int argc, char* argv[]) {
 
    printf("Successfully registered %d data elements\n", g_totalElements);
 
-   for (int i = 0; i < sizeof(gMethodElements) / sizeof(DataElement); i++) {
+   build_element_index();
+
+   for (size_t i = 0; i < sizeof(gMethodElements) / sizeof(DataElement); i++) {
       const DataElement* method = &gMethodElements[i];
       registerMethod(g_rbusHandle, method);
    }
@@ -953,7 +1028,7 @@ int main(int argc, char* argv[]) {
          table->num_inst = 0;
       }
 
-      for (uint32_t m = table->next_inst; m <= max; m++) {
+   for (uint32_t m = table->next_inst; m <= (uint32_t)max; m++) {
          table->rows = realloc(table->rows, (table->num_rows + 1) * sizeof(TableRow));
          TableRow* row = &table->rows[table->num_rows];
          snprintf(row->name, MAX_NAME_LEN, "%s", tbl);
@@ -961,6 +1036,7 @@ int main(int argc, char* argv[]) {
          row->alias[0] = '\0';
          row->props = NULL;
          table->num_rows++;
+         table->num_inst++; /* ensure getTableHandler returns correct NumberOfEntries */
 
          //rc = rbusTable_registerRow(g_rbusHandle, row->name, row->instNum, NULL);
          rc = rbusTable_addRow(g_rbusHandle, row->name, row->alias, &row->instNum);
@@ -974,8 +1050,9 @@ int main(int argc, char* argv[]) {
 
    // Set initial values
    for (int j = 0; j < g_num_initial; j++) {
-      char concrete[sizeof(g_initial_values[j].table) + g_initial_values[j].inst + sizeof(g_initial_values[j].prop)];
-      snprintf(concrete, sizeof(concrete), "%s%d.%s", g_initial_values[j].table, g_initial_values[j].inst, g_initial_values[j].prop);
+      /* Allocate enough space: table + digits (max 10 for 32-bit) + dot + prop + null */
+      char concrete[MAX_NAME_LEN * 2];
+      snprintf(concrete, sizeof(concrete), "%s%u.%s", g_initial_values[j].table, g_initial_values[j].inst, g_initial_values[j].prop);
 
       rbusValue_t val;
       rbusValue_Init(&val);

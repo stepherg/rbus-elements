@@ -75,11 +75,13 @@ static bool update_memory_cache(void) {
    g_mem_cache.used = mem_total - g_mem_cache.free;
 #endif
 
+
    g_mem_cache.last_updated = now;
    return true;
 }
 
 rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -195,6 +197,7 @@ rbusError_t get_system_serial_number(rbusHandle_t handle, rbusProperty_t propert
 }
 
 rbusError_t get_system_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -219,6 +222,7 @@ rbusError_t get_system_time(rbusHandle_t handle, rbusProperty_t property, rbusGe
 }
 
 rbusError_t get_system_uptime(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -267,6 +271,7 @@ rbusError_t get_system_uptime(rbusHandle_t handle, rbusProperty_t property, rbus
 }
 
 rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -396,6 +401,7 @@ rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGe
 }
 
 rbusError_t get_memory_free(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -411,6 +417,7 @@ rbusError_t get_memory_free(rbusHandle_t handle, rbusProperty_t property, rbusGe
 }
 
 rbusError_t get_memory_used(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -427,6 +434,7 @@ rbusError_t get_memory_used(rbusHandle_t handle, rbusProperty_t property, rbusGe
 }
 
 rbusError_t get_memory_total(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -443,6 +451,7 @@ rbusError_t get_memory_total(rbusHandle_t handle, rbusProperty_t property, rbusG
 }
 
 rbusError_t get_local_time(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    rbusValue_t value;
    rbusValue_Init(&value);
 
@@ -476,6 +485,7 @@ rbusError_t get_local_time(rbusHandle_t handle, rbusProperty_t property, rbusGet
 }
 
 rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
 
    rbusValue_t value;
    rbusValue_Init(&value);
@@ -605,6 +615,7 @@ rbusError_t get_manufacturer_oui(rbusHandle_t handle, rbusProperty_t property, r
 }
 
 rbusError_t get_first_ip(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
 
    rbusValue_t value;
    rbusValue_Init(&value);
@@ -731,5 +742,4 @@ int get_first_non_localhost_ip(char* out, size_t outlen, int allow_v6) {
    freeifaddrs(ifas);
    return rc;
 }
-
 #endif

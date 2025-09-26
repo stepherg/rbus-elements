@@ -88,6 +88,7 @@ char* get_table_name(const char* name, uint32_t* instance, char** property_name)
 }
 
 rbusError_t getTableHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    const char* name = rbusProperty_GetName(property);
 
    char table_name[MAX_NAME_LEN];
@@ -116,6 +117,7 @@ rbusError_t getTableHandler(rbusHandle_t handle, rbusProperty_t property, rbusGe
 }
 
 rbusError_t table_add_row(rbusHandle_t handle, const char* tableName, const char* aliasName, uint32_t* instNum) {
+   (void)handle;
    if (!tableName || !instNum) {
       return RBUS_ERROR_INVALID_INPUT;
    }
@@ -191,7 +193,7 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char* rowName) {
    char tableName[MAX_NAME_LEN];
    snprintf(tableName, MAX_NAME_LEN, "%s.", buf);  // Reconstruct table name with trailing dot
 
-   int instance = 0;
+   uint32_t instance = 0;
    char* extracted_alias = NULL;
    bool is_numeric_inst = false;
 
@@ -281,6 +283,7 @@ rbusError_t table_remove_row(rbusHandle_t handle, const char* rowName) {
 }
 
 void valueChangeHandler(rbusHandle_t handle, rbusEvent_t const* event, rbusEventSubscription_t* subscription) {
+   (void)handle; (void)subscription;
    rbusValue_t newValue = rbusObject_GetValue(event->data, "value");
    if (!newValue) {
       fprintf(stderr, "Value change event for %s: No new value provided\n", event->name);
@@ -325,6 +328,7 @@ void valueChangeHandler(rbusHandle_t handle, rbusEvent_t const* event, rbusEvent
 }
 
 rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, const char* eventName, rbusFilter_t filter, int32_t interval, bool* autoPublish) {
+   (void)handle; (void)filter; (void)interval;
    fprintf(stderr, "Event subscription handler called for %s, action: %s\n", eventName,
       action == RBUS_EVENT_ACTION_SUBSCRIBE ? "subscribe" : "unsubscribe");
 
@@ -334,53 +338,52 @@ rbusError_t eventSubHandler(rbusHandle_t handle, rbusEventSubAction_t action, co
 }
 
 rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    const char* name = rbusProperty_GetName(property);
    uint32_t inst;
    char* prop;
    char* tbl = get_table_name(name, &inst, &prop);
    if (tbl == NULL) {
       // Normal property
-      for (int i = 0; i < g_totalElements; i++) {
-         if (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY && strcmp(name, g_internalDataElements[i].name) == 0) {
-            rbusValue_t value;
-            rbusValue_Init(&value);
-            switch (g_internalDataElements[i].type) {
-               case TYPE_STRING:
-               case TYPE_DATETIME:
-               case TYPE_BASE64:
-                  rbusValue_SetString(value, g_internalDataElements[i].value.strVal);
-                  break;
-               case TYPE_INT:
-                  rbusValue_SetInt32(value, g_internalDataElements[i].value.intVal);
-                  break;
-               case TYPE_UINT:
-                  rbusValue_SetUInt32(value, g_internalDataElements[i].value.uintVal);
-                  break;
-               case TYPE_BOOL:
-                  rbusValue_SetBoolean(value, g_internalDataElements[i].value.boolVal);
-                  break;
-               case TYPE_LONG:
-                  rbusValue_SetInt64(value, g_internalDataElements[i].value.longVal);
-                  break;
-               case TYPE_ULONG:
-                  rbusValue_SetUInt64(value, g_internalDataElements[i].value.ulongVal);
-                  break;
-               case TYPE_FLOAT:
-                  rbusValue_SetSingle(value, g_internalDataElements[i].value.floatVal);
-                  break;
-               case TYPE_DOUBLE:
-                  rbusValue_SetDouble(value, g_internalDataElements[i].value.doubleVal);
-                  break;
-               case TYPE_BYTE:
-                  rbusValue_SetByte(value, g_internalDataElements[i].value.byteVal);
-                  break;
-            }
-            rbusProperty_SetValue(property, value);
-            rbusValue_Release(value);
-            return RBUS_ERROR_SUCCESS;
-         }
+      DataElement* de = lookup_element(name);
+      if(!de || de->elementType != RBUS_ELEMENT_TYPE_PROPERTY)
+         return RBUS_ERROR_INVALID_INPUT;
+      rbusValue_t value;
+      rbusValue_Init(&value);
+      switch (de->type) {
+         case TYPE_STRING:
+         case TYPE_DATETIME:
+         case TYPE_BASE64:
+            rbusValue_SetString(value, de->value.strVal);
+            break;
+         case TYPE_INT:
+            rbusValue_SetInt32(value, de->value.intVal);
+            break;
+         case TYPE_UINT:
+            rbusValue_SetUInt32(value, de->value.uintVal);
+            break;
+         case TYPE_BOOL:
+            rbusValue_SetBoolean(value, de->value.boolVal);
+            break;
+         case TYPE_LONG:
+            rbusValue_SetInt64(value, de->value.longVal);
+            break;
+         case TYPE_ULONG:
+            rbusValue_SetUInt64(value, de->value.ulongVal);
+            break;
+         case TYPE_FLOAT:
+            rbusValue_SetSingle(value, de->value.floatVal);
+            break;
+         case TYPE_DOUBLE:
+            rbusValue_SetDouble(value, de->value.doubleVal);
+            break;
+         case TYPE_BYTE:
+            rbusValue_SetByte(value, de->value.byteVal);
+            break;
       }
-      return RBUS_ERROR_INVALID_INPUT;
+      rbusProperty_SetValue(property, value);
+      rbusValue_Release(value);
+      return RBUS_ERROR_SUCCESS;
    } else {
       // Row property
       TableDef* table = NULL;
@@ -421,13 +424,7 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
          // Add with default
          char wildcard[MAX_NAME_LEN];
          snprintf(wildcard, MAX_NAME_LEN, "%s{i}.%s", tbl, prop);
-         DataElement* de = NULL;
-         for (int i = 0; i < g_totalElements; i++) {
-            if (strcmp(g_internalDataElements[i].name, wildcard) == 0 && g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
-               de = &g_internalDataElements[i];
-               break;
-            }
-         }
+         DataElement* de = lookup_element(wildcard);
          if (!de) {
             free(tbl);
             free(prop);
@@ -502,6 +499,7 @@ rbusError_t getHandler(rbusHandle_t handle, rbusProperty_t property, rbusGetHand
 }
 
 rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHandlerOptions_t* options) {
+   (void)handle; (void)options;
    const char* name = rbusProperty_GetName(property);
 
    rbusValue_t value = rbusProperty_GetValue(property);
@@ -510,65 +508,61 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
    char* tbl = get_table_name(name, &inst, &prop);
    if (tbl == NULL) {
       // Normal property
-      for (int i = 0; i < g_totalElements; i++) {
-         if (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY && strcmp(name, g_internalDataElements[i].name) == 0) {
-            ValueType type = g_internalDataElements[i].type;
-            rbusValueType_t vt = rbusValue_GetType(value);
-            // Check type match
-            if ((type == TYPE_STRING && vt != RBUS_STRING) ||
-               (type == TYPE_INT && vt != RBUS_INT32) ||
-               (type == TYPE_UINT && vt != RBUS_UINT32) ||
-               (type == TYPE_BOOL && vt != RBUS_BOOLEAN) ||
-               (type == TYPE_DATETIME && vt != RBUS_STRING) ||
-               (type == TYPE_BASE64 && vt != RBUS_STRING) ||
-               (type == TYPE_LONG && vt != RBUS_INT64) ||
-               (type == TYPE_ULONG && vt != RBUS_UINT64) ||
-               (type == TYPE_FLOAT && vt != RBUS_SINGLE) ||
-               (type == TYPE_DOUBLE && vt != RBUS_DOUBLE) ||
-               (type == TYPE_BYTE && vt != RBUS_BYTE)) {
-               return RBUS_ERROR_INVALID_INPUT;
-            }
-
-            if (IS_STRING_TYPE(type)) {
-               free(g_internalDataElements[i].value.strVal);
-               g_internalDataElements[i].value.strVal = strdup(rbusValue_GetString(value, NULL));
-               if (!g_internalDataElements[i].value.strVal) {
-                  return RBUS_ERROR_OUT_OF_RESOURCES;
-               }
-            } else {
-               switch (type) {
-                  case TYPE_INT:
-                     g_internalDataElements[i].value.intVal = rbusValue_GetInt32(value);
-                     break;
-                  case TYPE_UINT:
-                     g_internalDataElements[i].value.uintVal = rbusValue_GetUInt32(value);
-                     break;
-                  case TYPE_BOOL:
-                     g_internalDataElements[i].value.boolVal = rbusValue_GetBoolean(value);
-                     break;
-                  case TYPE_LONG:
-                     g_internalDataElements[i].value.longVal = rbusValue_GetInt64(value);
-                     break;
-                  case TYPE_ULONG:
-                     g_internalDataElements[i].value.ulongVal = rbusValue_GetUInt64(value);
-                     break;
-                  case TYPE_FLOAT:
-                     g_internalDataElements[i].value.floatVal = rbusValue_GetSingle(value);
-                     break;
-                  case TYPE_DOUBLE:
-                     g_internalDataElements[i].value.doubleVal = rbusValue_GetDouble(value);
-                     break;
-                  case TYPE_BYTE:
-                     g_internalDataElements[i].value.byteVal = rbusValue_GetByte(value);
-                     break;
-                  default:
-                     break;
-               }
-            }
-            return RBUS_ERROR_SUCCESS;
+      DataElement* de = lookup_element(name);
+      if(!de || de->elementType != RBUS_ELEMENT_TYPE_PROPERTY)
+         return RBUS_ERROR_INVALID_INPUT;
+      ValueType type = de->type;
+      rbusValueType_t vt = rbusValue_GetType(value);
+      if ((type == TYPE_STRING && vt != RBUS_STRING) ||
+         (type == TYPE_INT && vt != RBUS_INT32) ||
+         (type == TYPE_UINT && vt != RBUS_UINT32) ||
+         (type == TYPE_BOOL && vt != RBUS_BOOLEAN) ||
+         (type == TYPE_DATETIME && vt != RBUS_STRING) ||
+         (type == TYPE_BASE64 && vt != RBUS_STRING) ||
+         (type == TYPE_LONG && vt != RBUS_INT64) ||
+         (type == TYPE_ULONG && vt != RBUS_UINT64) ||
+         (type == TYPE_FLOAT && vt != RBUS_SINGLE) ||
+         (type == TYPE_DOUBLE && vt != RBUS_DOUBLE) ||
+         (type == TYPE_BYTE && vt != RBUS_BYTE)) {
+         return RBUS_ERROR_INVALID_INPUT;
+      }
+      if (IS_STRING_TYPE(type)) {
+         free(de->value.strVal);
+         de->value.strVal = strdup(rbusValue_GetString(value, NULL));
+         if (!de->value.strVal) {
+            return RBUS_ERROR_OUT_OF_RESOURCES;
+         }
+      } else {
+         switch (type) {
+            case TYPE_INT:
+               de->value.intVal = rbusValue_GetInt32(value);
+               break;
+            case TYPE_UINT:
+               de->value.uintVal = rbusValue_GetUInt32(value);
+               break;
+            case TYPE_BOOL:
+               de->value.boolVal = rbusValue_GetBoolean(value);
+               break;
+            case TYPE_LONG:
+               de->value.longVal = rbusValue_GetInt64(value);
+               break;
+            case TYPE_ULONG:
+               de->value.ulongVal = rbusValue_GetUInt64(value);
+               break;
+            case TYPE_FLOAT:
+               de->value.floatVal = rbusValue_GetSingle(value);
+               break;
+            case TYPE_DOUBLE:
+               de->value.doubleVal = rbusValue_GetDouble(value);
+               break;
+            case TYPE_BYTE:
+               de->value.byteVal = rbusValue_GetByte(value);
+               break;
+            default:
+               break;
          }
       }
-      return RBUS_ERROR_INVALID_INPUT;
+      return RBUS_ERROR_SUCCESS;
    } else {
       // Row property
       TableDef* table = NULL;
@@ -610,13 +604,7 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
       ValueType type;
       if (!p) {
          char* wildcard = create_wildcard(name);
-         DataElement* de = NULL;
-         for (int i = 0; i < g_totalElements; i++) {
-            if (strcmp(g_internalDataElements[i].name, wildcard) == 0 && g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
-               de = &g_internalDataElements[i];
-               break;
-            }
-         }
+         DataElement* de = lookup_element(wildcard);
          if (!de) {
             free(tbl);
             free(prop);

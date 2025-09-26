@@ -155,3 +155,16 @@ rbusError_t setHandler(rbusHandle_t handle, rbusProperty_t property, rbusSetHand
 #define IS_STRING_TYPE(type) (type == TYPE_STRING || type == TYPE_DATETIME || type == TYPE_BASE64)
 
 char *create_wildcard(const char *name);
+
+/* Hash map for fast element lookup */
+typedef struct ElementNode {
+   const char *key;               /* points to DataElement.name storage */
+   DataElement *element;          /* pointer into g_internalDataElements */
+   struct ElementNode *next;      /* chaining */
+} ElementNode;
+
+extern ElementNode **g_element_buckets;
+extern size_t g_element_bucket_count;
+DataElement *lookup_element(const char *name);
+void build_element_index(void);
+void free_element_index(void);

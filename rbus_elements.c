@@ -295,6 +295,11 @@ static int compare_tables(const void* a, const void* b) {
 }
 
 bool loadDataElementsFromJson(const char* json_path) {
+   if (!json_path || strlen(json_path) == 0) {
+      fprintf(stderr, "Invalid JSON file path\n");
+      return false;
+   }
+   
    FILE* file = fopen(json_path, "r");
    if (!file) {
       fprintf(stderr, "Failed to open JSON file: %s\n", json_path);
@@ -303,6 +308,11 @@ bool loadDataElementsFromJson(const char* json_path) {
 
    fseek(file, 0, SEEK_END);
    long file_size = ftell(file);
+   if (file_size <= 0 || file_size > 10 * 1024 * 1024) { // Limit to 10MB
+      fprintf(stderr, "Invalid file size: %ld bytes\n", file_size);
+      fclose(file);
+      return false;
+   }
    fseek(file, 0, SEEK_SET);
    char* json_str = (char*)malloc(file_size + 1);
    if (!json_str) {

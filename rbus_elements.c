@@ -2,6 +2,7 @@
 
 DataElement* g_internalDataElements = NULL;
 static int g_numElements = 0;
+static int g_elementsCapacity = 0; // Track allocated capacity
 int g_totalElements = 0;
 rbusHandle_t g_rbusHandle = NULL;
 static rbusDataElement_t* g_dataElements = NULL;
@@ -335,9 +336,28 @@ bool loadDataElementsFromJson(const char* json_path) {
 
    g_internalDataElements = NULL;
    g_numElements = 0;
+   g_elementsCapacity = 32; // Start with reasonable capacity for elements
+   
+   // Pre-allocate g_internalDataElements
+   g_internalDataElements = malloc(g_elementsCapacity * sizeof(DataElement));
+   if (!g_internalDataElements) {
+      fprintf(stderr, "Failed to allocate initial memory for data elements\n");
+      free(initial_values);
+      cJSON_Delete(root);
+      return false;
+   }
 
    InitialRowValue* initial_values = NULL;
    int num_initial = 0;
+   int initial_capacity = 16; // Start with reasonable capacity
+   
+   // Pre-allocate initial_values to reduce realloc calls
+   initial_values = malloc(initial_capacity * sizeof(InitialRowValue));
+   if (!initial_values) {
+      fprintf(stderr, "Failed to allocate initial memory for initial values\n");
+      cJSON_Delete(root);
+      return false;
+   }
 
    for (int i = 0; i < json_num; i++) {
       cJSON* item = cJSON_GetArrayItem(root, i);
@@ -495,13 +515,18 @@ bool loadDataElementsFromJson(const char* json_path) {
                   break;
             }
 
-            // Add to initial_values
-            initial_values = realloc(initial_values, (num_initial + 1) * sizeof(InitialRowValue));
-            if (!initial_values) {
-               fprintf(stderr, "Failed to allocate memory for initial values\n");
-               free(tbl);
-               free(prop);
-               goto load_fail;
+            // Add to initial_values with capacity management
+            if (num_initial >= initial_capacity) {
+               initial_capacity *= 2;
+               InitialRowValue* temp = realloc(initial_values, initial_capacity * sizeof(InitialRowValue));
+               if (!temp) {
+                  fprintf(stderr, "Failed to reallocate memory for initial values\n");
+                  free(initial_values);
+                  free(tbl);
+                  free(prop);
+                  goto load_fail;
+               }
+               initial_values = temp;
             }
             initial_values[num_initial] = iv;
             num_initial++;
@@ -533,13 +558,18 @@ bool loadDataElementsFromJson(const char* json_path) {
                }
             }
             if (!prop_exists) {
-               g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
-               if (!g_internalDataElements) {
-                  fprintf(stderr, "Failed to allocate memory for data models\n");
-                  free(tbl);
-                  free(prop);
-                  free(prop_wild);
-                  goto load_fail;
+               // Check capacity and expand if needed
+               if (g_numElements >= g_elementsCapacity) {
+                  g_elementsCapacity *= 2;
+                  DataElement* temp = realloc(g_internalDataElements, g_elementsCapacity * sizeof(DataElement));
+                  if (!temp) {
+                     fprintf(stderr, "Failed to reallocate memory for data models\n");
+                     free(tbl);
+                     free(prop);
+                     free(prop_wild);
+                     goto load_fail;
+                  }
+                  g_internalDataElements = temp;
                }
 
                DataElement* de = &g_internalDataElements[g_numElements];
@@ -808,10 +838,15 @@ void ensure_table(const char* table_wild) {
    }
 
    // Add table
-   g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
-   if (!g_internalDataElements) {
-      fprintf(stderr, "Failed to allocate memory for data models\n");
-      return;
+   // Check capacity and expand if needed
+   if (g_numElements >= g_elementsCapacity) {
+      g_elementsCapacity *= 2;
+      DataElement* temp = realloc(g_internalDataElements, g_elementsCapacity * sizeof(DataElement));
+      if (!temp) {
+         fprintf(stderr, "Failed to reallocate memory for data elements in ensure_table\n");
+         return;
+      }
+      g_internalDataElements = temp;
    }
    DataElement* de = &g_internalDataElements[g_numElements];
    strncpy(de->name, table_wild, MAX_NAME_LEN - 1);
@@ -865,19 +900,31 @@ void ensure_table(const char* table_wild) {
 }
 
 static int num_table_max = 0;
+static int table_max_capacity = 0;
 static TableMaxInst* table_max = NULL;
 static void update_max(const char* t_name, uint32_t inst) {
+   if (!t_name || strlen(t_name) == 0) {
+      return;
+   }
+   
    for (int k = 0; k < num_table_max; k++) {
       if (strcmp(table_max[k].name, t_name) == 0) {
          if (inst > table_max[k].max_inst) table_max[k].max_inst = inst;
          return;
       }
    }
-   table_max = realloc(table_max, (num_table_max + 1) * sizeof(TableMaxInst));
-   if (!table_max) {
-      fprintf(stderr, "Failed to allocate memory for table_max\n");
-      return;
+   
+   // Check capacity and expand if needed
+   if (num_table_max >= table_max_capacity) {
+      table_max_capacity = table_max_capacity == 0 ? 8 : table_max_capacity * 2;
+      TableMaxInst* temp = realloc(table_max, table_max_capacity * sizeof(TableMaxInst));
+      if (!temp) {
+         fprintf(stderr, "Failed to allocate memory for table_max\n");
+         return;
+      }
+      table_max = temp;
    }
+   
    strncpy(table_max[num_table_max].name, t_name, MAX_NAME_LEN - 1);
    table_max[num_table_max].name[MAX_NAME_LEN - 1] = '\0';
    table_max[num_table_max].max_inst = inst;

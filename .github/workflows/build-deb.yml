@@ -69,7 +69,6 @@ jobs:
               cmake --build . --config ${{ env.BUILD_TYPE }} -- -j$(nproc)
               cpack -G DEB
               
-              mv *.deb /workspace/build/
               chown -R $(stat -c "%u:%g" /workspace) /workspace/build || true
             '
           ls -lh build/

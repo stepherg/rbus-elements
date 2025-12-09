@@ -51,25 +51,120 @@ jobs:
               set -e
               export DEBIAN_FRONTEND=noninteractive
               apt-get update -qq
-              apt-get install -y -qq build-essential cmake pkg-config file wget \
+              apt-get install -y -qq build-essential cmake pkg-config file wget binutils \
                 libmsgpackc2 libmsgpack-dev libcjson-dev libjansson-dev
               
               # Install rbus package dependencies
               RBUS_VERSION="2.7.0"
               wget -q https://github.com/stepherg/rbus/releases/download/v${RBUS_VERSION}/liblinenoise_1.0_${{ matrix.platform }}.deb
               wget -q https://github.com/stepherg/rbus/releases/download/v${RBUS_VERSION}/rbus_${RBUS_VERSION}_${{ matrix.platform }}.deb
+              wget -q https://github.com/stepherg/rbus/releases/download/v${RBUS_VERSION}/rbus-dev_${RBUS_VERSION}_${{ matrix.platform }}.deb
               dpkg -i liblinenoise_1.0_${{ matrix.platform }}.deb || true
               dpkg -i rbus_${RBUS_VERSION}_${{ matrix.platform }}.deb || true
+              dpkg -i rbus-dev_${RBUS_VERSION}_${{ matrix.platform }}.deb || true
               apt-get install -f -y
               
-              rm -rf build
-              mkdir -p build
-              cd build
-              cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ..
+              rm -rf build-rbus-elements
+              mkdir -p build-rbus-elements
+              mkdir -p /workspace/build
+              cd build-rbus-elements
+              
+              # Configure with debug symbols enabled
+              cmake -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+                    -DCMAKE_C_FLAGS_RELEASE="-g -O2" \
+                    ..
+              
+              # Build the project
               cmake --build . --config ${{ env.BUILD_TYPE }} -- -j$(nproc)
+              
+              # Extract debug symbols and create debug package
+              echo "=== Extracting debug symbols ==="
+              mkdir -p /tmp/rbus-elements-dbg/DEBIAN
+              mkdir -p /tmp/rbus-elements-dbg/usr/lib/debug/usr/bin
+              
+              # Process binary - extract, strip, and add debug link
+              if [ -f "rbus_elements" ]; then
+                echo "Processing rbus_elements"
+                objcopy --only-keep-debug rbus_elements /tmp/rbus-elements-dbg/usr/lib/debug/usr/bin/rbus_elements.debug
+                strip --strip-debug --strip-unneeded rbus_elements
+                objcopy --add-gnu-debuglink=/tmp/rbus-elements-dbg/usr/lib/debug/usr/bin/rbus_elements.debug rbus_elements
+                echo "  Stripped binary:"
+                file rbus_elements
+                echo "  Debug file:"
+                file /tmp/rbus-elements-dbg/usr/lib/debug/usr/bin/rbus_elements.debug
+              fi
+              
+              echo "=== Debug symbols extracted ==="
+              
+              # Generate runtime package (with stripped binary)
               cpack -G DEB
               
+              # Create control file for debug package
+              # Calculate installed size (in KB)
+              DBG_SIZE=$(du -sk /tmp/rbus-elements-dbg/usr | cut -f1)
+              
+              echo "Package: rbus-elements-dbg" > /tmp/rbus-elements-dbg/DEBIAN/control
+              echo "Version: 1.0.0" >> /tmp/rbus-elements-dbg/DEBIAN/control
+              echo "Section: debug" >> /tmp/rbus-elements-dbg/DEBIAN/control
+              echo "Priority: optional" >> /tmp/rbus-elements-dbg/DEBIAN/control
+              echo "Architecture: ${{ matrix.platform }}" >> /tmp/rbus-elements-dbg/DEBIAN/control
+              echo "Installed-Size: $DBG_SIZE" >> /tmp/rbus-elements-dbg/DEBIAN/control
+              echo "Depends: rbus-elements (= 1.0.0)" >> /tmp/rbus-elements-dbg/DEBIAN/control
+              echo "Maintainer: RBus Team" >> /tmp/rbus-elements-dbg/DEBIAN/control
+              echo "Description: Debug symbols for RBus Elements" >> /tmp/rbus-elements-dbg/DEBIAN/control
+              echo " This package contains debug symbols for the RBus Elements provider." >> /tmp/rbus-elements-dbg/DEBIAN/control
+              
+              # Create GDB init script for automatic source path mapping
+              mkdir -p /tmp/rbus-elements-dbg/etc/gdb/gdbinit.d
+              echo "# Auto-configure source paths for RBus Elements debugging" > /tmp/rbus-elements-dbg/etc/gdb/gdbinit.d/rbus-elements.gdb
+              echo "# This file is automatically loaded by GDB when debugging RBus Elements" >> /tmp/rbus-elements-dbg/etc/gdb/gdbinit.d/rbus-elements.gdb
+              echo "set substitute-path /workspace/build /usr/src/rbus-elements-1.0.0" >> /tmp/rbus-elements-dbg/etc/gdb/gdbinit.d/rbus-elements.gdb
+              echo "set substitute-path /workspace /usr/src/rbus-elements-1.0.0" >> /tmp/rbus-elements-dbg/etc/gdb/gdbinit.d/rbus-elements.gdb
+              
+              # Build debug package
+              echo "Building debug package..."
+              dpkg-deb --build /tmp/rbus-elements-dbg /workspace/build/rbus-elements-dbg_1.0.0_${{ matrix.platform }}.deb
+              
+              # Create source debug package (architecture-independent)
+              echo "=== Creating source package for debugging ==="
+              mkdir -p /tmp/rbus-elements-dbgsrc/DEBIAN
+              mkdir -p /tmp/rbus-elements-dbgsrc/usr/src/rbus-elements-1.0.0
+              
+              # Copy source files (go back to workspace root)
+              cd /workspace
+              cp *.c *.h CMakeLists.txt /tmp/rbus-elements-dbgsrc/usr/src/rbus-elements-1.0.0/ 2>/dev/null || true
+              
+              # Create control file for source package
+              # Calculate installed size (in KB)
+              SRC_SIZE=$(du -sk /tmp/rbus-elements-dbgsrc/usr | cut -f1)
+              
+              echo "Package: rbus-elements-dbgsrc" > /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo "Version: 1.0.0" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo "Section: debug" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo "Priority: optional" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo "Architecture: all" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo "Installed-Size: $SRC_SIZE" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo "Depends: rbus-elements-dbg (= 1.0.0)" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo "Maintainer: RBus Team" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo "Description: Source files for debugging RBus Elements" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo " This package contains the source code for the RBus Elements provider," >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo " which is useful when debugging with gdb. Sources are installed to" >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              echo " /usr/src/rbus-elements-1.0.0/ and can be used with GDB source path mapping." >> /tmp/rbus-elements-dbgsrc/DEBIAN/control
+              
+              # Build source package (architecture-independent, so build it every time)
+              echo "Building source debug package..."
+              dpkg-deb --build /tmp/rbus-elements-dbgsrc /workspace/build/rbus-elements-dbgsrc_1.0.0_all.deb
+              
+              # Go back to build directory
+              cd /workspace/build-rbus-elements
+              
+              # Move all packages to build directory
+              echo "Moving packages to build directory..."
+              mv *.deb /workspace/build/
               chown -R $(stat -c "%u:%g" /workspace) /workspace/build || true
+              
+              echo "Package build complete. Contents of /workspace/build:"
+              ls -lh /workspace/build/
             '
           ls -lh build/
 

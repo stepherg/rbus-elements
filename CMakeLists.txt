@@ -73,9 +73,9 @@ target_link_libraries(
    rbus_elements PRIVATE ${RBUS_LIBRARY} ${RBUS_CORE_LIBRARY} ${CJSON_LIBRARY} ${JANSSON_LIBRARY})
 file(COPY ${CMAKE_SOURCE_DIR}/elements.json DESTINATION ${CMAKE_BINARY_DIR})
 
-install(TARGETS rbus_elements DESTINATION bin)
-install(FILES ${CMAKE_SOURCE_DIR}/elements.json DESTINATION share/rbus_elements)
-install(FILES ${CMAKE_SOURCE_DIR}/conf/rbus-elements.service DESTINATION /lib/systemd/system/)
+install(TARGETS rbus_elements DESTINATION bin COMPONENT runtime)
+install(FILES ${CMAKE_SOURCE_DIR}/elements.json DESTINATION share/rbus_elements COMPONENT runtime)
+install(FILES ${CMAKE_SOURCE_DIR}/conf/rbus-elements.service DESTINATION /lib/systemd/system/ COMPONENT runtime)
 
 # CPack configuration for Debian packages
 set(CPACK_GENERATOR "DEB")
@@ -84,9 +84,6 @@ set(CPACK_PACKAGE_VERSION "1.0.0")
 set(CPACK_PACKAGE_CONTACT "RBus Team")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "RBus Elements Provider")
 set(CPACK_PACKAGE_DESCRIPTION "RBus elements provider for device information")
-set(CPACK_DEBIAN_PACKAGE_SECTION "net")
-set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "rbus (>= 2.7.0), libcjson1, libjansson4, libmsgpackc2")
 
 # Architecture mapping for Debian packages
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64.*|AARCH64.*|arm64.*|ARM64.*)")
@@ -96,6 +93,23 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64.*|X86_64.*|AMD64.*|amd64.*)")
 else()
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
 endif()
+
+# Enable component-based packaging
+set(CPACK_DEB_COMPONENT_INSTALL ON)
+set(CPACK_COMPONENTS_ALL runtime)
+
+# Strip binaries in runtime package
+set(CPACK_STRIP_FILES TRUE)
+
+# Runtime package configuration
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_NAME "rbus-elements")
+set(CPACK_DEBIAN_RUNTIME_FILE_NAME "rbus-elements_${CPACK_PACKAGE_VERSION}_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}.deb")
+set(CPACK_COMPONENT_RUNTIME_DESCRIPTION "RBus elements provider for device information")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_DEPENDS "rbus (>= 2.7.0), libcjson1, libjansson4, libmsgpackc2")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_SECTION "net")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_PRIORITY "optional")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_MAINTAINER "RBus Team")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_SHLIBDEPS ON)
 
 # Generate postinst script for ldconfig and service management
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/postinst" "#!/bin/sh
@@ -131,6 +145,6 @@ if [ \"$1\" = \"purge\" ] || [ \"$1\" = \"remove\" ]; then
 fi
 ")
 
-set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_BINARY_DIR}/postinst;${CMAKE_CURRENT_BINARY_DIR}/prerm;${CMAKE_CURRENT_BINARY_DIR}/postrm")
+set(CPACK_DEBIAN_RUNTIME_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_BINARY_DIR}/postinst;${CMAKE_CURRENT_BINARY_DIR}/prerm;${CMAKE_CURRENT_BINARY_DIR}/postrm")
 
 include(CPack)

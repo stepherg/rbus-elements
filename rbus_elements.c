@@ -430,12 +430,12 @@ bool loadDataElementsFromJson(const char* json_path) {
       }
 
       if (element_type == RBUS_ELEMENT_TYPE_PROPERTY) {
-         if (!cJSON_IsNumber(type_obj) || cJSON_GetNumberValue(type_obj) < 0 || cJSON_GetNumberValue(type_obj) > TYPE_BYTE) {
+         if (!cJSON_IsNumber(type_obj) || (type_obj)->valuedouble < 0 || (type_obj)->valuedouble > TYPE_BYTE) {
             fprintf(stderr, "Invalid type for item %d\n", i);
             goto load_fail;
          }
 
-         ValueType type = (ValueType)cJSON_GetNumberValue(type_obj);
+         ValueType type = (ValueType)(type_obj)->valuedouble;
          uint32_t inst;
          char* prop = NULL;
          char* tbl = get_table_name(name, &inst, &prop);
@@ -461,7 +461,7 @@ bool loadDataElementsFromJson(const char* json_path) {
                   break;
                case TYPE_INT:
                   if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = cJSON_GetNumberValue(value_obj);
+                     double val = (value_obj)->valuedouble;
                      if (val >= INT32_MIN && val <= INT32_MAX) {
                         iv.value.intVal = (int32_t)val;
                      } else {
@@ -476,7 +476,7 @@ bool loadDataElementsFromJson(const char* json_path) {
                   break;
                case TYPE_UINT:
                   if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = cJSON_GetNumberValue(value_obj);
+                     double val = (value_obj)->valuedouble;
                      if (val >= 0 && val <= UINT32_MAX) {
                         iv.value.uintVal = (uint32_t)val;
                      } else {
@@ -494,7 +494,7 @@ bool loadDataElementsFromJson(const char* json_path) {
                   break;
                case TYPE_LONG:
                   if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = cJSON_GetNumberValue(value_obj);
+                     double val = (value_obj)->valuedouble;
                      if (val >= INT64_MIN && val <= INT64_MAX) {
                         iv.value.longVal = (int64_t)val;
                      } else {
@@ -509,7 +509,7 @@ bool loadDataElementsFromJson(const char* json_path) {
                   break;
                case TYPE_ULONG:
                   if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = cJSON_GetNumberValue(value_obj);
+                     double val = (value_obj)->valuedouble;
                      if (val >= 0 && val <= UINT64_MAX) {
                         iv.value.ulongVal = (uint64_t)val;
                      } else {
@@ -523,14 +523,14 @@ bool loadDataElementsFromJson(const char* json_path) {
                   }
                   break;
                case TYPE_FLOAT:
-                  iv.value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
+                  iv.value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)(value_obj)->valuedouble : 0.0f;
                   break;
                case TYPE_DOUBLE:
-                  iv.value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
+                  iv.value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? (value_obj)->valuedouble : 0.0;
                   break;
                case TYPE_BYTE:
                   if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = cJSON_GetNumberValue(value_obj);
+                     double val = (value_obj)->valuedouble;
                      if (val >= 0 && val <= UINT8_MAX) {
                         iv.value.byteVal = (uint8_t)val;
                      } else {
@@ -615,7 +615,7 @@ bool loadDataElementsFromJson(const char* json_path) {
       de->methodHandler = NULL;
 
       if (element_type == RBUS_ELEMENT_TYPE_PROPERTY) {
-         de->type = (ValueType)cJSON_GetNumberValue(type_obj);
+         de->type = (ValueType)(type_obj)->valuedouble;
 
          switch (de->type) {
             case TYPE_STRING:
@@ -629,7 +629,7 @@ bool loadDataElementsFromJson(const char* json_path) {
                break;
             case TYPE_INT:
                if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
+                  double val = (value_obj)->valuedouble;
                   if (val >= INT32_MIN && val <= INT32_MAX) {
                      de->value.intVal = (int32_t)val;
                   } else {
@@ -642,7 +642,7 @@ bool loadDataElementsFromJson(const char* json_path) {
                break;
             case TYPE_UINT:
                if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
+                  double val = (value_obj)->valuedouble;
                   if (val >= 0 && val <= UINT32_MAX) {
                      de->value.uintVal = (uint32_t)val;
                   } else {
@@ -658,7 +658,7 @@ bool loadDataElementsFromJson(const char* json_path) {
                break;
             case TYPE_LONG:
                if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
+                  double val = (value_obj)->valuedouble;
                   if (val >= INT64_MIN && val <= INT64_MAX) {
                      de->value.longVal = (int64_t)val;
                   } else {
@@ -671,7 +671,7 @@ bool loadDataElementsFromJson(const char* json_path) {
                break;
             case TYPE_ULONG:
                if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
+                  double val = (value_obj)->valuedouble;
                   if (val >= 0 && val <= UINT64_MAX) {
                      de->value.ulongVal = (uint64_t)val;
                   } else {
@@ -683,14 +683,14 @@ bool loadDataElementsFromJson(const char* json_path) {
                }
                break;
             case TYPE_FLOAT:
-               de->value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)cJSON_GetNumberValue(value_obj) : 0.0f;
+               de->value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)(value_obj)->valuedouble : 0.0f;
                break;
             case TYPE_DOUBLE:
-               de->value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? cJSON_GetNumberValue(value_obj) : 0.0;
+               de->value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? (value_obj)->valuedouble : 0.0;
                break;
             case TYPE_BYTE:
                if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = cJSON_GetNumberValue(value_obj);
+                  double val = (value_obj)->valuedouble;
                   if (val >= 0 && val <= UINT8_MAX) {
                      de->value.byteVal = (uint8_t)val;
                   } else {

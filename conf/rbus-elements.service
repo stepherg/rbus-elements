@@ -1,0 +1,16 @@
+[Unit]
+Description=RBus Elements Provider
+Documentation=https://github.com/rdkcentral/rbus
+After=network.target rbus.service
+Requires=rbus.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/rbus_elements /usr/share/rbus_elements/elements.json
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

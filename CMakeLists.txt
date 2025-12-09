@@ -75,3 +75,62 @@ file(COPY ${CMAKE_SOURCE_DIR}/elements.json DESTINATION ${CMAKE_BINARY_DIR})
 
 install(TARGETS rbus_elements DESTINATION bin)
 install(FILES ${CMAKE_SOURCE_DIR}/elements.json DESTINATION share/rbus_elements)
+install(FILES ${CMAKE_SOURCE_DIR}/conf/rbus-elements.service DESTINATION /lib/systemd/system/)
+
+# CPack configuration for Debian packages
+set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_NAME "rbus-elements")
+set(CPACK_PACKAGE_VERSION "1.0.0")
+set(CPACK_PACKAGE_CONTACT "RBus Team")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "RBus Elements Provider")
+set(CPACK_PACKAGE_DESCRIPTION "RBus elements provider for device information")
+set(CPACK_DEBIAN_PACKAGE_SECTION "net")
+set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "rbus (>= 2.7.0), libcjson1, libjansson4, libmsgpackc2")
+
+# Architecture mapping for Debian packages
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64.*|AARCH64.*|arm64.*|ARM64.*)")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64.*|X86_64.*|AMD64.*|amd64.*)")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+else()
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
+endif()
+
+# Generate postinst script for ldconfig and service management
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/postinst" "#!/bin/sh
+set -e
+if [ \"$1\" = \"configure\" ]; then
+    ldconfig
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+        systemctl enable rbus-elements.service >/dev/null 2>&1 || true
+        systemctl start rbus-elements.service >/dev/null 2>&1 || true
+    fi
+fi
+")
+
+# Generate prerm script to stop service on removal/upgrade
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/prerm" "#!/bin/sh
+set -e
+if [ \"$1\" = \"remove\" ] || [ \"$1\" = \"upgrade\" ]; then
+    if [ -d /run/systemd/system ]; then
+        systemctl stop rbus-elements.service >/dev/null 2>&1 || true
+    fi
+fi
+")
+
+# Generate postrm script to disable service on purge
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/postrm" "#!/bin/sh
+set -e
+if [ \"$1\" = \"purge\" ] || [ \"$1\" = \"remove\" ]; then
+    if [ -d /run/systemd/system ]; then
+        systemctl disable rbus-elements.service >/dev/null 2>&1 || true
+        systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+fi
+")
+
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_BINARY_DIR}/postinst;${CMAKE_CURRENT_BINARY_DIR}/prerm;${CMAKE_CURRENT_BINARY_DIR}/postrm")
+
+include(CPack)

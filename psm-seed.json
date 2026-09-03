@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "records": {
+    "eRT.com.cisco.spvtg.ccsp.webpa.WebConfigRfcEnable": {
+      "type": "string",
+      "value": "true"
+    }
+  }
+}

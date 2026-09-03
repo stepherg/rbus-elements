@@ -22965,10 +22965,9 @@
       "type": 0
    },
    {
-      "name": "Device.X_RDK_WebConfig.webcfgSubdocForceReset",
-      "elementType": "event",
-      "value": "",
-      "type": 0
+      "name": "Device.CR.SystemReady",
+      "value": true,
+      "type": 3
    },
    {
       "name": "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.Telemetry.MTLS.Enable",

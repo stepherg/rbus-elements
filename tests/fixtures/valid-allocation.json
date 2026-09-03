@@ -1,0 +1,5 @@
+[
+  {"name":"Device.Test.String","type":0,"value":"ready"},
+  {"name":"Device.Test.Table.1.Value","type":1,"value":"100"},
+  {"name":"Device.Test.Enabled","type":3,"value":"true"}
+]

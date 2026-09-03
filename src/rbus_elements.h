@@ -1,3 +1,6 @@
+#ifndef RBUS_ELEMENTS_H
+#define RBUS_ELEMENTS_H
+
 #include <rbus/rbus.h>
 #include <cJSON.h>
 #include <stdio.h>
@@ -43,6 +46,18 @@ typedef enum {
    TYPE_BYTE = 10
 } ValueType;
 
+typedef union {
+   char *strVal;
+   int32_t intVal;
+   uint32_t uintVal;
+   bool boolVal;
+   int64_t longVal;
+   uint64_t ulongVal;
+   float floatVal;
+   double doubleVal;
+   uint8_t byteVal;
+} ElementValue;
+
 typedef struct {
    unsigned int numInputArgs;
    char **inputArgs;
@@ -54,17 +69,7 @@ typedef struct {
    char name[MAX_NAME_LEN];
    rbusElementType_t elementType; // RBUS_ELEMENT_TYPE_PROPERTY, TABLE, EVENT, or METHOD
    ValueType type; // Used for properties only
-   union {
-      char *strVal;          // TYPE_STRING, TYPE_DATETIME, TYPE_BASE64
-      int32_t intVal;        // TYPE_INT
-      uint32_t uintVal;      // TYPE_UINT
-      bool boolVal;          // TYPE_BOOL
-      int64_t longVal;       // TYPE_LONG
-      uint64_t ulongVal;     // TYPE_ULONG
-      float floatVal;        // TYPE_FLOAT
-      double doubleVal;      // TYPE_DOUBLE
-      uint8_t byteVal;       // TYPE_BYTE
-   } value;
+   ElementValue value;
    rbusGetHandler_t getHandler;
    rbusSetHandler_t setHandler;
    rbusTableAddRowHandler_t tableAddRowHandler;
@@ -77,17 +82,7 @@ typedef struct {
 typedef struct RowProperty {
    char name[MAX_NAME_LEN];
    ValueType type;
-   union {
-      char *strVal;
-      int32_t intVal;
-      uint32_t uintVal;
-      bool boolVal;
-      int64_t longVal;
-      uint64_t ulongVal;
-      float floatVal;
-      double doubleVal;
-      uint8_t byteVal;
-   } value;
+   ElementValue value;
    struct RowProperty *next;
 } RowProperty;
 
@@ -111,17 +106,7 @@ typedef struct {
    int inst;
    char prop[MAX_NAME_LEN];
    ValueType type;
-   union {
-      char *strVal;
-      int32_t intVal;
-      uint32_t uintVal;
-      bool boolVal;
-      int64_t longVal;
-      uint64_t ulongVal;
-      float floatVal;
-      double doubleVal;
-      uint8_t byteVal;
-   } value;
+   ElementValue value;
 } InitialRowValue;
 
 // Built-in DeviceInfo data models
@@ -139,8 +124,12 @@ rbusError_t get_first_ip(rbusHandle_t handle, rbusProperty_t property, rbusGetHa
 // Methods
 rbusError_t system_reboot_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
 rbusError_t get_system_info_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
+rbusError_t psm_set_record_value_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
+rbusError_t psm_get_record_value_method(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
 rbusError_t device_telemetry_collect(rbusHandle_t handle, const char *methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle);
-void registerMethod(rbusHandle_t handle, const DataElement *method);
+rbusError_t registerMethod(rbusHandle_t handle, const DataElement *method);
+bool initialize_psm(void);
+void shutdown_psm(void);
 
 // Handlers
 char *get_table_name(const char *name, uint32_t *instance, char **property_name);
@@ -166,5 +155,7 @@ typedef struct ElementNode {
 extern ElementNode **g_element_buckets;
 extern size_t g_element_bucket_count;
 DataElement *lookup_element(const char *name);
-void build_element_index(void);
+bool build_element_index(void);
 void free_element_index(void);
+
+#endif

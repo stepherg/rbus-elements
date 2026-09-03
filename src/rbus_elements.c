@@ -1,10 +1,19 @@
 #include "rbus_elements.h"
+#include "model_alloc.h"
+#include "model_value.h"
+#include "provider_state.h"
+#include <fcntl.h>
+#include <math.h>
+#include <sys/stat.h>
 
 DataElement* g_internalDataElements = NULL;
 static int g_numElements = 0;
 int g_totalElements = 0;
 rbusHandle_t g_rbusHandle = NULL;
 static rbusDataElement_t* g_dataElements = NULL;
+static int g_numDataElementNames = 0;
+static bool g_elementsRegistered = false;
+static size_t g_numMethodsRegistered = 0;
 ElementNode **g_element_buckets = NULL;
 size_t g_element_bucket_count = 0;
 static volatile sig_atomic_t g_running = 1;
@@ -15,13 +24,42 @@ int g_num_initial = 0;
 
 typedef struct {
    char name[MAX_NAME_LEN];
-   uint32_t max_inst;
+   uint32_t inst;
 }TableMaxInst;
 
 static char* get_parent_table(const char* table_wild);
 static char* get_parent_concrete(const char* c_table, uint32_t* p_inst);
-static void ensure_table(const char* table_wild);
+static bool ensure_table(const char* table_wild);
 static int count_indices(const char* name);
+
+static DataElement* find_data_element(const char* name) {
+   for (int i = 0; i < g_numElements; i++) {
+      if (strcmp(g_internalDataElements[i].name, name) == 0) return &g_internalDataElements[i];
+   }
+   return NULL;
+}
+
+static DataElement* append_data_element(void) {
+   DataElement* resized = model_realloc(g_internalDataElements, (size_t)(g_numElements + 1) * sizeof(*resized));
+   if (!resized) return NULL;
+   g_internalDataElements = resized;
+   DataElement* element = &g_internalDataElements[g_numElements++];
+   memset(element, 0, sizeof(*element));
+   return element;
+}
+
+static bool append_initial_value(InitialRowValue** values, int* count, const InitialRowValue* value) {
+   InitialRowValue* resized = model_realloc(*values, (size_t)(*count + 1) * sizeof(*resized));
+   if (!resized) return false;
+   *values = resized;
+   (*values)[(*count)++] = *value;
+   return true;
+}
+
+static bool model_name_is_valid(const char* name) {
+   size_t length = name ? strlen(name) : 0;
+   return length > 0 && length < MAX_NAME_LEN;
+}
 
 // Signal handler for SIGINT and SIGTERM
 static void signal_handler(int sig) {
@@ -187,30 +225,63 @@ static const DataElement gMethodElements[] = {
       }
    },
    {
+      .name = "SetPSMRecordValue()",
+      .elementType = RBUS_ELEMENT_TYPE_METHOD,
+      .type = TYPE_STRING,
+      .value.strVal = "",
+      .methodHandler = psm_set_record_value_method,
+      .methodArgs = {
+         .numInputArgs = 0,
+         .inputArgs = NULL,
+         .numOutputArgs = 0,
+         .outputArgs = NULL
+      }
+   },
+   {
+      .name = "GetPSMRecordValue()",
+      .elementType = RBUS_ELEMENT_TYPE_METHOD,
+      .type = TYPE_STRING,
+      .value.strVal = "",
+      .methodHandler = psm_get_record_value_method,
+      .methodArgs = {
+         .numInputArgs = 0,
+         .inputArgs = NULL,
+         .numOutputArgs = 0,
+         .outputArgs = NULL
+      }
+   },
+   {
       .name = "Device.Telemetry.Collect()",
       .elementType = RBUS_ELEMENT_TYPE_METHOD,
       .type = TYPE_STRING, // Not used for methods
       .value.strVal = "",
       .methodHandler = device_telemetry_collect,
       .methodArgs = {
-         .numInputArgs = 2,
-         .inputArgs = (char* []){"msg_type", "source", "dest"},
+         .numInputArgs = 12,
+         .inputArgs = (char* []){"msg_type", "source", "dest", "content_type", "partner_ids", "headers", "metadata", "payload", "session_id", "transaction_uuid", "qos", "rdr"},
          .numOutputArgs = 1,
-         .outputArgs = (char* []){"outparams"}
+         .outputArgs = (char* []){"status"}
       }
    }
 };
+
+static const DataElement* find_builtin_method(const char* name) {
+   for (size_t i = 0; i < sizeof(gMethodElements) / sizeof(gMethodElements[0]); i++) {
+      if (strcmp(gMethodElements[i].name, name) == 0) return &gMethodElements[i];
+   }
+   return NULL;
+}
 
 char* create_wildcard(const char* name) {
    if(!name || *name=='\0')
       return NULL;
    size_t len = strlen(name);
-   char* result = malloc(len * 2 + 1);  // Safe upper bound for inserting {i}
+   char* result = model_malloc(len * 2 + 1);  // Safe upper bound for inserting {i}
    if (!result) return NULL;
    result[0] = '\0';
 
    bool trailing_dot = (len>0 && name[len - 1] == '.');
-   char* temp = strdup(name);
+   char* temp = model_strdup(name);
    if (!temp) {
       free(result);
       return NULL;
@@ -243,7 +314,7 @@ char* get_parent_table(const char* table_wild) {
    }
    if (!last) return NULL;
    size_t len = last - table_wild + 1;
-   char* parent = malloc(len + 1);
+   char* parent = model_malloc(len + 1);
    if (!parent) return NULL;
    strncpy(parent, table_wild, len);
    parent[len] = '\0';
@@ -284,7 +355,10 @@ static int compare_tables(const void* a, const void* b) {
    const TableMaxInst* tb = (const TableMaxInst*)b;
    int da = count_indices(ta->name);
    int db = count_indices(tb->name);
-   return da - db;
+   if (da != db) return da - db;
+   int names = strcmp(ta->name, tb->name);
+   if (names != 0) return names;
+   return ta->inst < tb->inst ? -1 : ta->inst > tb->inst;
 }
 
 /* ------- Hash map for DataElement lookups ------- */
@@ -309,7 +383,7 @@ void free_element_index(void) {
    g_element_bucket_count = 0;
 }
 
-void build_element_index(void) {
+bool build_element_index(void) {
    free_element_index();
    /* choose bucket count as next power-of-two >= elements*2 for load factor <=0.5 */
    size_t need = (size_t)g_totalElements * 2 + 1;
@@ -318,17 +392,21 @@ void build_element_index(void) {
    if(cap < 16) cap = 16;
    g_element_bucket_count = cap;
    g_element_buckets = calloc(g_element_bucket_count, sizeof(ElementNode*));
-   if(!g_element_buckets) { g_element_bucket_count = 0; return; }
+   if(!g_element_buckets) { g_element_bucket_count = 0; return false; }
    for(int i=0;i<g_totalElements;i++) {
       uint32_t h = hash_str(g_internalDataElements[i].name);
       size_t idx = h & (g_element_bucket_count - 1);
       ElementNode *node = malloc(sizeof(ElementNode));
-      if(!node) continue; /* skip on OOM */
+      if(!node) {
+         free_element_index();
+         return false;
+      }
       node->key = g_internalDataElements[i].name;
       node->element = &g_internalDataElements[i];
       node->next = g_element_buckets[idx];
       g_element_buckets[idx] = node;
    }
+   return true;
 }
 
 DataElement *lookup_element(const char *name) {
@@ -353,7 +431,7 @@ bool loadDataElementsFromJson(const char* json_path) {
    fseek(file, 0, SEEK_END);
    long file_size = ftell(file);
    fseek(file, 0, SEEK_SET);
-   char* json_str = (char*)malloc(file_size + 1);
+   char* json_str = model_malloc((size_t)file_size + 1);
    if (!json_str) {
       fprintf(stderr, "Failed to allocate memory for JSON string\n");
       fclose(file);
@@ -388,6 +466,13 @@ bool loadDataElementsFromJson(const char* json_path) {
 
    InitialRowValue* initial_values = NULL;
    int num_initial = 0;
+   char** source_names = model_calloc((size_t)json_num, sizeof(*source_names));
+   int num_source_names = 0;
+   if (!source_names) {
+      fprintf(stderr, "Failed to allocate model identity set\n");
+      cJSON_Delete(root);
+      return false;
+   }
 
    for (int i = 0; i < json_num; i++) {
       cJSON* item = cJSON_GetArrayItem(root, i);
@@ -414,6 +499,22 @@ bool loadDataElementsFromJson(const char* json_path) {
       }
 
       const char* name = cJSON_GetStringValue(name_obj);
+      if (!model_name_is_valid(name)) {
+         fprintf(stderr, "Invalid name for item %d ('%s'): name must contain 1-%d bytes\n",
+            i, name ? name : "", MAX_NAME_LEN - 1);
+         goto load_fail;
+      }
+      for (int j = 0; j < num_source_names; j++) {
+         if (strcmp(source_names[j], name) == 0) {
+            fprintf(stderr, "Duplicate name for item %d ('%s')\n", i, name);
+            goto load_fail;
+         }
+      }
+      source_names[num_source_names] = model_strdup(name);
+      if (!source_names[num_source_names++]) {
+         fprintf(stderr, "Failed to allocate name for item %d ('%s')\n", i, name);
+         goto load_fail;
+      }
       rbusElementType_t element_type;
 
       if (strcmp(element_type_str, "property") == 0) {
@@ -429,9 +530,18 @@ bool loadDataElementsFromJson(const char* json_path) {
          goto load_fail;
       }
 
+      if (element_type == RBUS_ELEMENT_TYPE_METHOD) {
+         if (!find_builtin_method(name)) {
+            fprintf(stderr, "Unsupported method for item %d ('%s')\n", i, name);
+            goto load_fail;
+         }
+         continue;
+      }
+
       if (element_type == RBUS_ELEMENT_TYPE_PROPERTY) {
-         if (!cJSON_IsNumber(type_obj) || (type_obj)->valuedouble < 0 || (type_obj)->valuedouble > TYPE_BYTE) {
-            fprintf(stderr, "Invalid type for item %d\n", i);
+         if (!cJSON_IsNumber(type_obj) || trunc(type_obj->valuedouble) != type_obj->valuedouble ||
+            type_obj->valuedouble < 0 || type_obj->valuedouble > TYPE_BYTE) {
+            fprintf(stderr, "Invalid type for item %d ('%s')\n", i, name);
             goto load_fail;
          }
 
@@ -440,153 +550,77 @@ bool loadDataElementsFromJson(const char* json_path) {
          char* prop = NULL;
          char* tbl = get_table_name(name, &inst, &prop);
          if (tbl) {
+            if (!model_name_is_valid(tbl) || !model_name_is_valid(prop)) {
+               fprintf(stderr, "Synthesized name exceeds limit for item %d ('%s')\n", i, name);
+               free(tbl);
+               free(prop);
+               goto load_fail;
+            }
             // Row property
             InitialRowValue iv;
-            strcpy(iv.table, tbl);
+            snprintf(iv.table, sizeof(iv.table), "%s", tbl);
             iv.inst = inst;
-            strcpy(iv.prop, prop);
+            snprintf(iv.prop, sizeof(iv.prop), "%s", prop);
             iv.type = type;
-
-            switch (type) {
-               case TYPE_STRING:
-               case TYPE_DATETIME:
-               case TYPE_BASE64:
-                  iv.value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
-                  if (!iv.value.strVal) {
-                     fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
-                     free(tbl);
-                     free(prop);
-                     goto load_fail;
-                  }
-                  break;
-               case TYPE_INT:
-                  if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = (value_obj)->valuedouble;
-                     if (val >= INT32_MIN && val <= INT32_MAX) {
-                        iv.value.intVal = (int32_t)val;
-                     } else {
-                        fprintf(stderr, "Value out of range for TYPE_INT at item %d\n", i);
-                        free(tbl);
-                        free(prop);
-                        goto load_fail;
-                     }
-                  } else {
-                     iv.value.intVal = 0;
-                  }
-                  break;
-               case TYPE_UINT:
-                  if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = (value_obj)->valuedouble;
-                     if (val >= 0 && val <= UINT32_MAX) {
-                        iv.value.uintVal = (uint32_t)val;
-                     } else {
-                        fprintf(stderr, "Value out of range for TYPE_UINT at item %d\n", i);
-                        free(tbl);
-                        free(prop);
-                        goto load_fail;
-                     }
-                  } else {
-                     iv.value.uintVal = 0;
-                  }
-                  break;
-               case TYPE_BOOL:
-                  iv.value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
-                  break;
-               case TYPE_LONG:
-                  if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = (value_obj)->valuedouble;
-                     if (val >= INT64_MIN && val <= INT64_MAX) {
-                        iv.value.longVal = (int64_t)val;
-                     } else {
-                        fprintf(stderr, "Value out of range for TYPE_LONG at item %d\n", i);
-                        free(tbl);
-                        free(prop);
-                        goto load_fail;
-                     }
-                  } else {
-                     iv.value.longVal = 0;
-                  }
-                  break;
-               case TYPE_ULONG:
-                  if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = (value_obj)->valuedouble;
-                     if (val >= 0 && val <= UINT64_MAX) {
-                        iv.value.ulongVal = (uint64_t)val;
-                     } else {
-                        fprintf(stderr, "Value out of range for TYPE_ULONG at item %d\n", i);
-                        free(tbl);
-                        free(prop);
-                        goto load_fail;
-                     }
-                  } else {
-                     iv.value.ulongVal = 0;
-                  }
-                  break;
-               case TYPE_FLOAT:
-                  iv.value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)(value_obj)->valuedouble : 0.0f;
-                  break;
-               case TYPE_DOUBLE:
-                  iv.value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? (value_obj)->valuedouble : 0.0;
-                  break;
-               case TYPE_BYTE:
-                  if (value_obj && cJSON_IsNumber(value_obj)) {
-                     double val = (value_obj)->valuedouble;
-                     if (val >= 0 && val <= UINT8_MAX) {
-                        iv.value.byteVal = (uint8_t)val;
-                     } else {
-                        fprintf(stderr, "Value out of range for TYPE_BYTE at item %d\n", i);
-                        free(tbl);
-                        free(prop);
-                        goto load_fail;
-                     }
-                  } else {
-                     iv.value.byteVal = 0;
-                  }
-                  break;
+            char value_error[128];
+            if (!model_value_parse(value_obj, type, &iv.value, value_error, sizeof(value_error))) {
+               fprintf(stderr, "Invalid value for item %d ('%s'): %s\n", i, name, value_error);
+               free(tbl);
+               free(prop);
+               goto load_fail;
             }
 
             // Add to initial_values
-            initial_values = realloc(initial_values, (num_initial + 1) * sizeof(InitialRowValue));
-            initial_values[num_initial] = iv;
-            num_initial++;
+            if (!append_initial_value(&initial_values, &num_initial, &iv)) {
+               fprintf(stderr, "Failed to grow initial values for item %d ('%s')\n", i, name);
+               model_value_free(type, &iv.value);
+               free(tbl);
+               free(prop);
+               goto load_fail;
+            }
 
             // Compute wildcards
             char* table_wild = create_wildcard(tbl);
-            ensure_table(table_wild);
+            if (!table_wild || !model_name_is_valid(table_wild) || !ensure_table(table_wild)) {
+               fprintf(stderr, "Failed to synthesize table for item %d ('%s')\n", i, name);
+               free(table_wild);
+               free(tbl);
+               free(prop);
+               goto load_fail;
+            }
             free(table_wild);
 
             // Add wildcard property if not present
             char* prop_wild = create_wildcard(name);
-            bool prop_exists = false;
-            for (int j = 0; j < g_numElements; j++) {
-               if (strcmp(g_internalDataElements[j].name, prop_wild) == 0 && g_internalDataElements[j].elementType == RBUS_ELEMENT_TYPE_PROPERTY) {
-                  prop_exists = true;
-                  break;
-               }
+            if (!prop_wild || !model_name_is_valid(prop_wild)) {
+               fprintf(stderr, "Invalid synthesized property for item %d ('%s')\n", i, name);
+               free(tbl);
+               free(prop);
+               free(prop_wild);
+               goto load_fail;
             }
-            if (!prop_exists) {
-               g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
-               if (!g_internalDataElements) {
+            DataElement* existing = find_data_element(prop_wild);
+            if (existing && (existing->elementType != RBUS_ELEMENT_TYPE_PROPERTY || existing->type != type)) {
+               fprintf(stderr, "Conflicting synthesized name for item %d ('%s'): %s\n", i, name, prop_wild);
+               free(tbl);
+               free(prop);
+               free(prop_wild);
+               goto load_fail;
+            }
+            if (!existing) {
+               DataElement* de = append_data_element();
+               if (!de) {
                   fprintf(stderr, "Failed to allocate memory for data models\n");
                   free(tbl);
                   free(prop);
                   free(prop_wild);
                   goto load_fail;
                }
-
-               DataElement* de = &g_internalDataElements[g_numElements];
-               strncpy(de->name, prop_wild, MAX_NAME_LEN - 1);
-               de->name[MAX_NAME_LEN - 1] = '\0';
+               snprintf(de->name, sizeof(de->name), "%s", prop_wild);
                de->elementType = RBUS_ELEMENT_TYPE_PROPERTY;
                de->type = type;
-               memset(&de->value, 0, sizeof(de->value));
                de->getHandler = getHandler;
                de->setHandler = setHandler;
-               de->tableAddRowHandler = NULL;
-               de->tableRemoveRowHandler = NULL;
-               de->eventSubHandler = NULL;
-               de->methodHandler = NULL;
-               g_numElements++;
             }
             free(prop_wild);
 
@@ -597,137 +631,50 @@ bool loadDataElementsFromJson(const char* json_path) {
       }
 
       // Add non-row element
-      g_internalDataElements = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
-      if (!g_internalDataElements) {
+      if (find_data_element(name)) {
+         fprintf(stderr, "Conflicting configured or synthesized name for item %d ('%s')\n", i, name);
+         goto load_fail;
+      }
+      DataElement* de = append_data_element();
+      if (!de) {
          fprintf(stderr, "Failed to allocate memory for data models\n");
          goto load_fail;
       }
 
-      DataElement* de = &g_internalDataElements[g_numElements];
-      strncpy(de->name, name, MAX_NAME_LEN - 1);
-      de->name[MAX_NAME_LEN - 1] = '\0';
+      snprintf(de->name, sizeof(de->name), "%s", name);
       de->elementType = element_type;
-      de->getHandler = NULL;
-      de->setHandler = NULL;
-      de->tableAddRowHandler = NULL;
-      de->tableRemoveRowHandler = NULL;
-      de->eventSubHandler = NULL;
-      de->methodHandler = NULL;
 
       if (element_type == RBUS_ELEMENT_TYPE_PROPERTY) {
          de->type = (ValueType)(type_obj)->valuedouble;
-
-         switch (de->type) {
-            case TYPE_STRING:
-            case TYPE_DATETIME:
-            case TYPE_BASE64:
-               de->value.strVal = value_obj && cJSON_IsString(value_obj) ? strdup(cJSON_GetStringValue(value_obj)) : strdup("");
-               if (!de->value.strVal) {
-                  fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
-                  goto load_fail;
-               }
-               break;
-            case TYPE_INT:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = (value_obj)->valuedouble;
-                  if (val >= INT32_MIN && val <= INT32_MAX) {
-                     de->value.intVal = (int32_t)val;
-                  } else {
-                     fprintf(stderr, "Value out of range for TYPE_INT at item %d\n", i);
-                     goto load_fail;
-                  }
-               } else {
-                  de->value.intVal = 0;
-               }
-               break;
-            case TYPE_UINT:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = (value_obj)->valuedouble;
-                  if (val >= 0 && val <= UINT32_MAX) {
-                     de->value.uintVal = (uint32_t)val;
-                  } else {
-                     fprintf(stderr, "Value out of range for TYPE_UINT at item %d\n", i);
-                     goto load_fail;
-                  }
-               } else {
-                  de->value.uintVal = 0;
-               }
-               break;
-            case TYPE_BOOL:
-               de->value.boolVal = value_obj && (cJSON_IsTrue(value_obj) || cJSON_IsFalse(value_obj)) ? cJSON_IsTrue(value_obj) : false;
-               break;
-            case TYPE_LONG:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = (value_obj)->valuedouble;
-                  if (val >= INT64_MIN && val <= INT64_MAX) {
-                     de->value.longVal = (int64_t)val;
-                  } else {
-                     fprintf(stderr, "Value out of range for TYPE_LONG at item %d\n", i);
-                     goto load_fail;
-                  }
-               } else {
-                  de->value.longVal = 0;
-               }
-               break;
-            case TYPE_ULONG:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = (value_obj)->valuedouble;
-                  if (val >= 0 && val <= UINT64_MAX) {
-                     de->value.ulongVal = (uint64_t)val;
-                  } else {
-                     fprintf(stderr, "Value out of range for TYPE_ULONG at item %d\n", i);
-                     goto load_fail;
-                  }
-               } else {
-                  de->value.ulongVal = 0;
-               }
-               break;
-            case TYPE_FLOAT:
-               de->value.floatVal = value_obj && cJSON_IsNumber(value_obj) ? (float)(value_obj)->valuedouble : 0.0f;
-               break;
-            case TYPE_DOUBLE:
-               de->value.doubleVal = value_obj && cJSON_IsNumber(value_obj) ? (value_obj)->valuedouble : 0.0;
-               break;
-            case TYPE_BYTE:
-               if (value_obj && cJSON_IsNumber(value_obj)) {
-                  double val = (value_obj)->valuedouble;
-                  if (val >= 0 && val <= UINT8_MAX) {
-                     de->value.byteVal = (uint8_t)val;
-                  } else {
-                     fprintf(stderr, "Value out of range for TYPE_BYTE at item %d\n", i);
-                     goto load_fail;
-                  }
-               } else {
-                  de->value.byteVal = 0;
-               }
-               break;
+         char value_error[128];
+         if (!model_value_parse(value_obj, de->type, &de->value, value_error, sizeof(value_error))) {
+            fprintf(stderr, "Invalid value for item %d ('%s'): %s\n", i, name, value_error);
+            goto load_fail;
          }
       } else {
          de->type = TYPE_STRING;
-         de->value.strVal = strdup("");
+         de->value.strVal = model_strdup("");
          if (!de->value.strVal) {
             fprintf(stderr, "Failed to allocate memory for string value at item %d\n", i);
             goto load_fail;
          }
       }
 
-      g_numElements++;
    }
 
    // Add hard coded
    int hard_num = sizeof(gDataElements) / sizeof(DataElement);
-   g_totalElements = g_numElements + hard_num;
-   void* tmp_realloc = realloc(g_internalDataElements, g_totalElements * sizeof(DataElement));
-   if (!tmp_realloc) {
-      fprintf(stderr, "Failed to allocate memory for data models\n");
-      goto load_fail;
-   }
-   g_internalDataElements = tmp_realloc;
-
-   for (int j = 0; j < hard_num; j++, g_numElements++) {
-      DataElement* de = &g_internalDataElements[g_numElements];
-      strncpy(de->name, gDataElements[j].name, MAX_NAME_LEN - 1);
-      de->name[MAX_NAME_LEN - 1] = '\0';
+   for (int j = 0; j < hard_num; j++) {
+      if (find_data_element(gDataElements[j].name)) {
+         fprintf(stderr, "Configured name conflicts with built-in '%s'\n", gDataElements[j].name);
+         goto load_fail;
+      }
+      DataElement* de = append_data_element();
+      if (!de) {
+         fprintf(stderr, "Failed to grow model for built-in '%s'\n", gDataElements[j].name);
+         goto load_fail;
+      }
+      snprintf(de->name, sizeof(de->name), "%s", gDataElements[j].name);
       de->elementType = gDataElements[j].elementType;
       de->type = gDataElements[j].type;
       de->getHandler = gDataElements[j].getHandler;
@@ -738,7 +685,7 @@ bool loadDataElementsFromJson(const char* json_path) {
       de->methodHandler = gDataElements[j].methodHandler;
 
       if (IS_STRING_TYPE(de->type)) {
-         de->value.strVal = strdup(gDataElements[j].value.strVal);
+         de->value.strVal = model_strdup(gDataElements[j].value.strVal);
          if (!de->value.strVal) {
             fprintf(stderr, "Failed to allocate memory for global data model string\n");
             goto load_fail;
@@ -748,7 +695,11 @@ bool loadDataElementsFromJson(const char* json_path) {
       }
    }
 
+   g_totalElements = g_numElements;
+
    cJSON_Delete(root);
+   for (int i = 0; i < num_source_names; i++) free(source_names[i]);
+   free(source_names);
 
    g_initial_values = initial_values;
    g_num_initial = num_initial;
@@ -773,27 +724,54 @@ load_fail:
       }
    }
    free(initial_values);
+   for (int i = 0; i < num_source_names; i++) free(source_names[i]);
+   free(source_names);
    cJSON_Delete(root);
    return false;
 }
 
 static void cleanup(void) {
+   shutdown_psm();
    free_element_index();
-   if (g_rbusHandle && g_dataElements && g_internalDataElements) {
+   if (g_rbusHandle) {
+      for (size_t i = 0; i < g_numMethodsRegistered; i++) {
+         rbusDataElement_t method = {(char*)gMethodElements[i].name, RBUS_ELEMENT_TYPE_METHOD, {0}};
+         rbus_unregDataElements(g_rbusHandle, 1, &method);
+      }
+      g_numMethodsRegistered = 0;
+   }
+   if (g_rbusHandle && g_elementsRegistered && g_dataElements) {
       rbus_unregDataElements(g_rbusHandle, g_totalElements, g_dataElements);
-      for (int i = 0; i < g_totalElements; i++) {
+      g_elementsRegistered = false;
+   }
+   if (g_rbusHandle && g_internalDataElements) {
+      for (int i = 0; i < g_numElements; i++) {
          if (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY ||
             g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_EVENT) {
             rbusEvent_Unsubscribe(g_rbusHandle, g_internalDataElements[i].name);
          }
-         if (IS_STRING_TYPE(g_internalDataElements[i].type)) {
-            free(g_internalDataElements[i].value.strVal);
-         }
-         free(g_dataElements[i].name);
       }
+   }
+   if (g_dataElements) {
+      for (int i = 0; i < g_numDataElementNames; i++) free(g_dataElements[i].name);
       free(g_dataElements);
       g_dataElements = NULL;
+      g_numDataElementNames = 0;
    }
+   for (int i = 0; i < g_numElements; i++) {
+      model_value_free(g_internalDataElements[i].type, &g_internalDataElements[i].value);
+   }
+   free(g_internalDataElements);
+   g_internalDataElements = NULL;
+   g_numElements = 0;
+   g_totalElements = 0;
+
+   for (int i = 0; i < g_num_initial; i++) {
+      model_value_free(g_initial_values[i].type, &g_initial_values[i].value);
+   }
+   free(g_initial_values);
+   g_initial_values = NULL;
+   g_num_initial = 0;
 
    // Free tables
    for (int i = 0; i < g_num_tables; i++) {
@@ -820,8 +798,8 @@ static void cleanup(void) {
    }
 }
 
-void ensure_table(const char* table_wild) {
-   if (!table_wild || strlen(table_wild) == 0) return;
+bool ensure_table(const char* table_wild) {
+   if (!model_name_is_valid(table_wild)) return false;
 
    // Check if table exists
    bool exists = false;
@@ -832,25 +810,22 @@ void ensure_table(const char* table_wild) {
          break;
       }
    }
-   if (exists) return;
+   if (exists) return true;
 
    // Recurse on parent
    char* parent = get_parent_table(table_wild);
    if (parent) {
-      ensure_table(parent);
+      if (!ensure_table(parent)) {
+         free(parent);
+         return false;
+      }
       free(parent);
    }
 
    // Add table
-   void* tmp_realloc = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
-   if (!tmp_realloc) {
-      fprintf(stderr, "Failed to allocate memory for data models\n");
-      return;
-   }
-   g_internalDataElements = tmp_realloc;
-   DataElement* de = &g_internalDataElements[g_numElements];
-   strncpy(de->name, table_wild, MAX_NAME_LEN - 1);
-   de->name[MAX_NAME_LEN - 1] = '\0';
+   DataElement* de = append_data_element();
+   if (!de) return false;
+   snprintf(de->name, sizeof(de->name), "%s", table_wild);
    de->elementType = RBUS_ELEMENT_TYPE_TABLE;
    de->type = TYPE_STRING;
    de->value.strVal = strdup("");
@@ -858,16 +833,15 @@ void ensure_table(const char* table_wild) {
    de->setHandler = NULL;
    de->tableAddRowHandler = table_add_row;
    de->tableRemoveRowHandler = table_remove_row;
-   de->eventSubHandler = NULL;
-   de->methodHandler = NULL;
-   g_numElements++;
 
    // Add NumberOfEntries property
-   char* base = strdup(table_wild);
+   char* base = model_strdup(table_wild);
+   if (!base) return false;
    if (base[strlen(base) - 1] == '.') base[strlen(base) - 1] = '\0';
    char num_name[MAX_NAME_LEN];
-   snprintf(num_name, MAX_NAME_LEN, "%s%s", base, TABLE_COUNT_PROP);
+   int written = snprintf(num_name, sizeof(num_name), "%s%s", base, TABLE_COUNT_PROP);
    free(base);
+   if (written < 0 || (size_t)written >= sizeof(num_name)) return false;
 
    bool num_exists = false;
    for (int j = 0; j < g_numElements; j++) {
@@ -878,52 +852,51 @@ void ensure_table(const char* table_wild) {
       }
    }
    if (!num_exists) {
-   void* tmp_realloc = realloc(g_internalDataElements, (g_numElements + 1) * sizeof(DataElement));
-      if (!tmp_realloc) {
-         fprintf(stderr, "Failed to allocate memory for data models\n");
-         return;
-      }
-      g_internalDataElements = tmp_realloc;
-      de = &g_internalDataElements[g_numElements];
-      strncpy(de->name, num_name, MAX_NAME_LEN - 1);
-      de->name[MAX_NAME_LEN - 1] = '\0';
+      de = append_data_element();
+      if (!de) return false;
+      snprintf(de->name, sizeof(de->name), "%s", num_name);
       de->elementType = RBUS_ELEMENT_TYPE_PROPERTY;
       de->type = TYPE_UINT;
       de->value.uintVal = 0;
       de->getHandler = getTableHandler;
       de->setHandler = NULL;
-      de->tableAddRowHandler = NULL;
-      de->tableRemoveRowHandler = NULL;
-      de->eventSubHandler = NULL;
-      de->methodHandler = NULL;
-      g_numElements++;
    }
+   return true;
 }
 
 static int num_table_max = 0;
 static TableMaxInst* table_max = NULL;
-static void update_max(const char* t_name, uint32_t inst) {
+static bool update_max(const char* t_name, uint32_t inst) {
    for (int k = 0; k < num_table_max; k++) {
-      if (strcmp(table_max[k].name, t_name) == 0) {
-         if (inst > table_max[k].max_inst) table_max[k].max_inst = inst;
-         return;
-      }
+      if (strcmp(table_max[k].name, t_name) == 0 && table_max[k].inst == inst) return true;
    }
-   table_max = realloc(table_max, (num_table_max + 1) * sizeof(TableMaxInst));
-   strcpy(table_max[num_table_max].name, t_name);
-   table_max[num_table_max].max_inst = inst;
+   TableMaxInst* resized = realloc(table_max, (size_t)(num_table_max + 1) * sizeof(*resized));
+   if (!resized) return false;
+   table_max = resized;
+   snprintf(table_max[num_table_max].name, sizeof(table_max[num_table_max].name), "%s", t_name);
+   table_max[num_table_max].inst = inst;
    num_table_max++;
+   return true;
 }
 
-static void ensure_inst(const char* c_table, uint32_t c_inst) {
-   if (!c_table) return;
-   update_max(c_table, c_inst);
+static bool ensure_inst(const char* c_table, uint32_t c_inst) {
+   if (!c_table || !update_max(c_table, c_inst)) return false;
    uint32_t p_inst = 0;
    char* p_table = get_parent_concrete(c_table, &p_inst);
-   if (p_table) {
-      ensure_inst(p_table, p_inst);
-   }
+   bool success = !p_table || ensure_inst(p_table, p_inst);
    free(p_table);
+   return success;
+}
+
+static bool publish_readiness(const char* path) {
+   int descriptor = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+   if (descriptor < 0) return false;
+   bool success = fsync(descriptor) == 0;
+   if (close(descriptor) != 0) success = false;
+   if (!success) {
+      unlink(path);
+   }
+   return success;
 }
 
 int main(int argc, char* argv[]) {
@@ -934,8 +907,27 @@ int main(int argc, char* argv[]) {
    signal(SIGHUP, signal_handler);
    signal(SIGQUIT, signal_handler);
 
-   if (!loadDataElementsFromJson((argc == 2) ? argv[1] : JSON_FILE)) {
-      fprintf(stderr, "Failed to load data elements from %s\n", (argc == 2) ? argv[1] : JSON_FILE);
+   bool validate_only = argc == 3 && strcmp(argv[1], "--validate") == 0;
+   const char* json_path = validate_only ? argv[2] : ((argc == 2) ? argv[1] : JSON_FILE);
+   if (!loadDataElementsFromJson(json_path)) {
+      fprintf(stderr, "Failed to load data elements from %s\n", json_path);
+      return 1;
+   }
+   if (validate_only) {
+      cleanup();
+      return 0;
+   }
+
+   const char* readiness_path = getenv("RBUS_ELEMENTS_READY_PATH");
+   if (!readiness_path || !*readiness_path) readiness_path = "/tmp/pam_initialized";
+   if (unlink(readiness_path) != 0 && errno != ENOENT) {
+      fprintf(stderr, "Failed to clear readiness marker %s: %s\n", readiness_path, strerror(errno));
+      cleanup();
+      return 1;
+   }
+
+   if (!initialize_psm()) {
+      cleanup();
       return 1;
    }
 
@@ -960,6 +952,7 @@ int main(int argc, char* argv[]) {
          cleanup();
          return 1;
       }
+      g_numDataElementNames++;
       g_dataElements[i].type = g_internalDataElements[i].elementType;
       g_dataElements[i].cbTable.getHandler = g_internalDataElements[i].getHandler ? g_internalDataElements[i].getHandler : (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY ? getHandler : NULL);
       g_dataElements[i].cbTable.setHandler = g_internalDataElements[i].setHandler ? g_internalDataElements[i].setHandler : (g_internalDataElements[i].elementType == RBUS_ELEMENT_TYPE_PROPERTY ? setHandler : NULL);
@@ -983,23 +976,38 @@ int main(int argc, char* argv[]) {
       cleanup();
       return 1;
    }
+   g_elementsRegistered = true;
 
    printf("Successfully registered %d data elements\n", g_totalElements);
 
-   build_element_index();
+   if (!build_element_index()) {
+      fprintf(stderr, "Failed to build element index\n");
+      cleanup();
+      return 1;
+   }
 
    for (size_t i = 0; i < sizeof(gMethodElements) / sizeof(DataElement); i++) {
       const DataElement* method = &gMethodElements[i];
-      registerMethod(g_rbusHandle, method);
+      rc = registerMethod(g_rbusHandle, method);
+      if (rc != RBUS_ERROR_SUCCESS) {
+         fprintf(stderr, "Failed to register required method %s: %d\n", method->name, rc);
+         cleanup();
+         return 1;
+      }
+      g_numMethodsRegistered++;
    }
 
    printf("Successfully registered %zu methods\n", sizeof(gMethodElements) / sizeof(DataElement));
 
    // Populate initial rows and values
 
-   // First, collect unique concrete tables and max_inst recursively
+   // First, collect unique concrete table instances recursively
    for (int j = 0; j < g_num_initial; j++) {
-      ensure_inst(g_initial_values[j].table, g_initial_values[j].inst);
+      if (!ensure_inst(g_initial_values[j].table, g_initial_values[j].inst)) {
+         fprintf(stderr, "Failed to plan initial row %s%u\n", g_initial_values[j].table, g_initial_values[j].inst);
+         cleanup();
+         return 1;
+      }
    }
 
    // Sort by increasing number of indices (outer first)
@@ -1008,45 +1016,32 @@ int main(int argc, char* argv[]) {
    // Add initial rows
    for (int k = 0; k < num_table_max; k++) {
       char* tbl = table_max[k].name;
-      int max = table_max[k].max_inst;
-
-      // Find or create TableDef
-      TableDef* table = NULL;
-      for (int i = 0; i < g_num_tables; i++) {
-         if (strcmp(g_tables[i].name, tbl) == 0) {
-            table = &g_tables[i];
-            break;
-         }
+      uint32_t instance = table_max[k].inst;
+      rc = rbusTable_registerRow(g_rbusHandle, tbl, instance, NULL);
+      if (rc != RBUS_ERROR_SUCCESS) {
+         fprintf(stderr, "Failed to register initial row %s%u: %d\n", tbl, instance, rc);
+         free(table_max);
+         table_max = NULL;
+         num_table_max = 0;
+         cleanup();
+         return 1;
       }
-      if (!table) {
-         g_tables = realloc(g_tables, (g_num_tables + 1) * sizeof(TableDef));
-         table = &g_tables[g_num_tables++];
-         strcpy(table->name, tbl);
-         table->rows = NULL;
-         table->num_rows = 0;
-         table->next_inst = 1;
-         table->num_inst = 0;
+      rc = provider_table_commit_registered(tbl, instance, NULL);
+      if (rc != RBUS_ERROR_SUCCESS) {
+         char row_name[MAX_NAME_LEN];
+         snprintf(row_name, sizeof(row_name), "%s%u", tbl, instance);
+         rbusTable_unregisterRow(g_rbusHandle, row_name);
+         fprintf(stderr, "Failed to commit initial row %s: %d\n", row_name, rc);
+         free(table_max);
+         table_max = NULL;
+         num_table_max = 0;
+         cleanup();
+         return 1;
       }
-
-   for (uint32_t m = table->next_inst; m <= (uint32_t)max; m++) {
-         table->rows = realloc(table->rows, (table->num_rows + 1) * sizeof(TableRow));
-         TableRow* row = &table->rows[table->num_rows];
-         snprintf(row->name, MAX_NAME_LEN, "%s", tbl);
-         row->instNum = m;
-         row->alias[0] = '\0';
-         row->props = NULL;
-         table->num_rows++;
-         table->num_inst++; /* ensure getTableHandler returns correct NumberOfEntries */
-
-         //rc = rbusTable_registerRow(g_rbusHandle, row->name, row->instNum, NULL);
-         rc = rbusTable_addRow(g_rbusHandle, row->name, row->alias, &row->instNum);
-         if (rc != RBUS_ERROR_SUCCESS) {
-            fprintf(stderr, "Failed to register initial row %s: %d\n", row->name, rc);
-         }
-      }
-      table->next_inst = max + 1;
    }
    free(table_max);
+   table_max = NULL;
+   num_table_max = 0;
 
    // Set initial values
    for (int j = 0; j < g_num_initial; j++) {
@@ -1092,6 +1087,9 @@ int main(int argc, char* argv[]) {
       rc = rbus_set(g_rbusHandle, concrete, val, &opts);
       if (rc != RBUS_ERROR_SUCCESS) {
          fprintf(stderr, "Failed to set initial value for %s: %d\n", concrete, rc);
+         rbusValue_Release(val);
+         cleanup();
+         return 1;
       }
       rbusValue_Release(val);
    }
@@ -1151,12 +1149,19 @@ int main(int argc, char* argv[]) {
          rc = rbus_set(g_rbusHandle, g_internalDataElements[i].name, value, &opts);
          if (rc != RBUS_ERROR_SUCCESS) {
             fprintf(stderr, "Failed to set %s: %d\n", g_internalDataElements[i].name, rc);
+            rbusValue_Release(value);
+            cleanup();
+            return 1;
          }
          rbusValue_Release(value);
       }
    }
 
-   system("touch /tmp/pam_initialized");
+   if (!publish_readiness(readiness_path)) {
+      fprintf(stderr, "Failed to publish readiness marker %s: %s\n", readiness_path, strerror(errno));
+      cleanup();
+      return 1;
+   }
 
    while (g_running) {
       sleep(1);

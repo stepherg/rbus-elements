@@ -1,0 +1,4 @@
+[
+  {"name":"Device.Test.1.Value","type":1,"value":1},
+  {"name":"Device.Test.{i}.Value","type":3,"value":true}
+]

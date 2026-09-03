@@ -32,6 +32,11 @@ Tables are inferred from property names containing concrete indices; wildcard ta
 - Device.Reboot(Delay) -> Status
 - Device.GetSystemInfo() -> SerialNumber,SystemTime,UpTime
 - Device.Telemetry.Collect(msg_type,source,dest) -> status
+- SetPSMRecordValue() stores each input property by its property name
+- GetPSMRecordValue() returns stored values using the requested property names
+
+PSM records are held for the lifetime of the process. The WebConfig RFC enable
+record is initialized to `true` for simulated-device startup.
 
 ## Notes
 

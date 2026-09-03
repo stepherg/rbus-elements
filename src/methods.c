@@ -1,5 +1,37 @@
 #include "rbus_elements.h"
+#include "psm_store.h"
 #include <jansson.h>
+
+#define DEFAULT_PSM_STATE_PATH "/var/lib/rbus-elements/psm.json"
+#define DEFAULT_PSM_SEED_PATH "/usr/share/rbus_elements/psm-seed.json"
+
+static PsmStore g_psm_store;
+static bool g_psm_initialized = false;
+
+bool initialize_psm(void) {
+   if (g_psm_initialized) {
+      return true;
+   }
+   const char* state_path = getenv("RBUS_ELEMENTS_PSM_STATE_PATH");
+   const char* seed_path = getenv("RBUS_ELEMENTS_PSM_SEED_PATH");
+   char error[256];
+   if (!psm_store_init(&g_psm_store,
+      state_path && *state_path ? state_path : DEFAULT_PSM_STATE_PATH,
+      seed_path && *seed_path ? seed_path : DEFAULT_PSM_SEED_PATH,
+      error, sizeof(error))) {
+      fprintf(stderr, "Failed to initialize PSM: %s\n", error);
+      return false;
+   }
+   g_psm_initialized = true;
+   return true;
+}
+
+void shutdown_psm(void) {
+   if (g_psm_initialized) {
+      psm_store_destroy(&g_psm_store);
+      g_psm_initialized = false;
+   }
+}
 
 static bool is_check(rbusObject_t obj) {
    rbusProperty_t prop = rbusObject_GetProperties(obj);
@@ -13,18 +45,13 @@ static bool is_check(rbusObject_t obj) {
    return false;
 }
 
-void registerMethod(rbusHandle_t handle, const DataElement* method) {
+rbusError_t registerMethod(rbusHandle_t handle, const DataElement* method) {
    rbusDataElement_t element = {(char*)method->name, RBUS_ELEMENT_TYPE_METHOD, {0}}; /* zero init cbTable */
-   /* Assign method handler post-init to avoid pedantic warning in aggregate initializer */
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpedantic"
-#endif
-   element.cbTable.methodHandler = method->methodHandler;
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
-   rbus_regDataElements(handle, 1, &element);
+   if (!handle || !method || !method->methodHandler ||
+      sizeof(element.cbTable.methodHandler) != sizeof(method->methodHandler))
+      return RBUS_ERROR_INVALID_INPUT;
+   memcpy(&element.cbTable.methodHandler, &method->methodHandler, sizeof(method->methodHandler));
+   return rbus_regDataElements(handle, 1, &element);
 }
 
 rbusError_t system_reboot_method(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
@@ -94,6 +121,62 @@ rbusError_t get_system_info_method(rbusHandle_t handle, const char* methodName, 
    rbusValue_Release(timeVal);
    rbusValue_Release(uptimeVal);
 
+   return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t psm_set_record_value_method(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+   (void)handle; (void)methodName; (void)asyncHandle;
+
+   rbusProperty_t property = rbusObject_GetProperties(inParams);
+   if (!property) {
+      return RBUS_ERROR_INVALID_INPUT;
+   }
+
+   if (!initialize_psm()) {
+      return RBUS_ERROR_OUT_OF_RESOURCES;
+   }
+
+   while (property) {
+      const char* name = rbusProperty_GetName(property);
+      rbusValue_t value = rbusProperty_GetValue(property);
+      rbusError_t error = psm_store_set(&g_psm_store, name, value);
+      if (error != RBUS_ERROR_SUCCESS) return error;
+
+      rbusValue_t result;
+      rbusValue_Init(&result);
+      rbusValue_SetBoolean(result, true);
+      rbusObject_SetValue(outParams, name, result);
+      rbusValue_Release(result);
+      property = rbusProperty_GetNext(property);
+   }
+   return RBUS_ERROR_SUCCESS;
+}
+
+rbusError_t psm_get_record_value_method(rbusHandle_t handle, const char* methodName, rbusObject_t inParams, rbusObject_t outParams, rbusMethodAsyncHandle_t asyncHandle) {
+   (void)handle; (void)methodName; (void)asyncHandle;
+
+   rbusProperty_t property = rbusObject_GetProperties(inParams);
+   if (!property) {
+      return RBUS_ERROR_INVALID_INPUT;
+   }
+
+   if (!initialize_psm()) {
+      return RBUS_ERROR_OUT_OF_RESOURCES;
+   }
+
+   while (property) {
+      const char* name = rbusProperty_GetName(property);
+      rbusValue_t value;
+      rbusValue_Init(&value);
+      rbusError_t error = psm_store_get(&g_psm_store, name, value);
+      if (error != RBUS_ERROR_SUCCESS) {
+         rbusValue_Release(value);
+         return error;
+      }
+      rbusObject_SetValue(outParams, name, value);
+      rbusValue_Release(value);
+      property = rbusProperty_GetNext(property);
+   }
    return RBUS_ERROR_SUCCESS;
 }
 

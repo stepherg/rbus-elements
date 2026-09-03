@@ -9,6 +9,8 @@ Type=simple
 ExecStart=/usr/bin/rbus_elements /usr/share/rbus_elements/elements.json
 Restart=on-failure
 RestartSec=5
+StateDirectory=rbus-elements
+StateDirectoryMode=0700
 StandardOutput=journal
 StandardError=journal
 

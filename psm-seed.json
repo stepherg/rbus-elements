@@ -4,6 +4,10 @@
     "eRT.com.cisco.spvtg.ccsp.webpa.WebConfigRfcEnable": {
       "type": "string",
       "value": "true"
+    },
+    "Device.X_RDK_WebConfig.URL": {
+      "type": "string",
+      "value": "http://webconfig:9000/api/v1/device/{mac}/config"
     }
   }
 }

@@ -352,34 +352,52 @@ rbusError_t get_mac_address(rbusHandle_t handle, rbusProperty_t property, rbusGe
    char mac_str[18] = {0};
    bool found = false;
 
-   ifc.ifc_len = sizeof(buf);
-   ifc.ifc_buf = buf;
-   if (ioctl(sock, SIOCGIFCONF, &ifc) < 0) {
-      close(sock);
-      rbusValue_Release(value);
-      return RBUS_ERROR_BUS_ERROR;
+   // Prefer the WAN-facing erouter0 interface; fall back to the first non-loopback interface below.
+   memset(&ifr, 0, sizeof(ifr));
+   strncpy(ifr.ifr_name, "erouter0", sizeof(ifr.ifr_name) - 1);
+   if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
+      unsigned char* mac = (unsigned char*)ifr.ifr_hwaddr.sa_data;
+      int ret = snprintf(mac_str, sizeof(mac_str),
+         "%02x:%02x:%02x:%02x:%02x:%02x",
+         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+      if (ret < 0 || ret >= (int)sizeof(mac_str)) {
+         close(sock);
+         rbusValue_Release(value);
+         return RBUS_ERROR_BUS_ERROR;
+      }
+      found = true;
    }
 
-   struct ifreq* it = ifc.ifc_req;
-   const struct ifreq* const end = it + (ifc.ifc_len / sizeof(struct ifreq));
+   if (!found) {
+      ifc.ifc_len = sizeof(buf);
+      ifc.ifc_buf = buf;
+      if (ioctl(sock, SIOCGIFCONF, &ifc) < 0) {
+         close(sock);
+         rbusValue_Release(value);
+         return RBUS_ERROR_BUS_ERROR;
+      }
 
-   for (; it != end; ++it) {
-      strcpy(ifr.ifr_name, it->ifr_name);
-      if (ioctl(sock, SIOCGIFFLAGS, &ifr) == 0) {
-         // Skip loopback interfaces
-         if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
-            if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
-               unsigned char* mac = (unsigned char*)ifr.ifr_hwaddr.sa_data;
-               int ret = snprintf(mac_str, sizeof(mac_str),
-                  "%02x:%02x:%02x:%02x:%02x:%02x",
-                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-               if (ret < 0 || ret >= (int)sizeof(mac_str)) {
-                  close(sock);
-                  rbusValue_Release(value);
-                  return RBUS_ERROR_BUS_ERROR;
+      struct ifreq* it = ifc.ifc_req;
+      const struct ifreq* const end = it + (ifc.ifc_len / sizeof(struct ifreq));
+
+      for (; it != end; ++it) {
+         strcpy(ifr.ifr_name, it->ifr_name);
+         if (ioctl(sock, SIOCGIFFLAGS, &ifr) == 0) {
+            // Skip loopback interfaces
+            if (!(ifr.ifr_flags & IFF_LOOPBACK)) {
+               if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
+                  unsigned char* mac = (unsigned char*)ifr.ifr_hwaddr.sa_data;
+                  int ret = snprintf(mac_str, sizeof(mac_str),
+                     "%02x:%02x:%02x:%02x:%02x:%02x",
+                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+                  if (ret < 0 || ret >= (int)sizeof(mac_str)) {
+                     close(sock);
+                     rbusValue_Release(value);
+                     return RBUS_ERROR_BUS_ERROR;
+                  }
+                  found = true;
+                  break;
                }
-               found = true;
-               break;
             }
          }
       }

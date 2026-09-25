@@ -19,6 +19,12 @@ option(RBUS_ELEMENTS_INSTALL_SYSTEM_FILES
    "Install the systemd unit and /var/lib state directory"
    ${RBUS_ELEMENTS_INSTALL_SYSTEM_FILES_DEFAULT})
 
+# Compiled-in fallbacks, used when the RBUS_ELEMENTS_PSM_*_PATH env vars are unset.
+set(RBUS_ELEMENTS_PSM_SEED_PATH "${CMAKE_INSTALL_PREFIX}/share/rbus_elements/psm-seed.json"
+   CACHE STRING "Default PSM seed file location")
+set(RBUS_ELEMENTS_PSM_STATE_PATH "/var/lib/rbus-elements/psm.json"
+   CACHE STRING "Default PSM state file location")
+
 if(RBUS_ELEMENTS_ASAN_UBSAN AND RBUS_ELEMENTS_TSAN)
    message(FATAL_ERROR "ASan/UBSan and TSan cannot be enabled in the same build")
 endif()
@@ -107,6 +113,10 @@ add_executable(rbus_elements
 target_include_directories(
    rbus_elements PRIVATE ${RBUS_ELEMENTS_SOURCE_DIR} ${RBUS_INCLUDE_DIR} ${RTMSG_INCLUDE_DIR}
    ${CJSON_INCLUDE_DIR} ${JANSSON_INCLUDE_DIR})
+target_compile_definitions(
+   rbus_elements PRIVATE
+   RBUS_ELEMENTS_PSM_SEED_PATH="${RBUS_ELEMENTS_PSM_SEED_PATH}"
+   RBUS_ELEMENTS_PSM_STATE_PATH="${RBUS_ELEMENTS_PSM_STATE_PATH}")
 target_link_libraries(
    rbus_elements PRIVATE ${RBUS_LIBRARY} ${RBUS_CORE_LIBRARY} ${CJSON_LIBRARY} ${JANSSON_LIBRARY} Threads::Threads m)
 file(COPY ${CMAKE_SOURCE_DIR}/elements.json DESTINATION ${CMAKE_BINARY_DIR})

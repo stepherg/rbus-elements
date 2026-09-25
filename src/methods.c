@@ -2,8 +2,15 @@
 #include "psm_store.h"
 #include <jansson.h>
 
-#define DEFAULT_PSM_STATE_PATH "/var/lib/rbus-elements/psm.json"
-#define DEFAULT_PSM_SEED_PATH "/usr/share/rbus_elements/psm-seed.json"
+#ifndef RBUS_ELEMENTS_PSM_STATE_PATH
+#define RBUS_ELEMENTS_PSM_STATE_PATH "/var/lib/rbus-elements/psm.json"
+#endif
+#ifndef RBUS_ELEMENTS_PSM_SEED_PATH
+#define RBUS_ELEMENTS_PSM_SEED_PATH "/usr/share/rbus_elements/psm-seed.json"
+#endif
+
+#define DEFAULT_PSM_STATE_PATH RBUS_ELEMENTS_PSM_STATE_PATH
+#define DEFAULT_PSM_SEED_PATH RBUS_ELEMENTS_PSM_SEED_PATH
 
 static PsmStore g_psm_store;
 static bool g_psm_initialized = false;

@@ -8,6 +8,17 @@ set(RBUS_ELEMENTS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 option(RBUS_ELEMENTS_ASAN_UBSAN "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(RBUS_ELEMENTS_TSAN "Enable ThreadSanitizer" OFF)
 
+# Installs to absolute paths (/var/lib, /lib/systemd) only make sense for a
+# staged distro package install (DESTDIR); disable for prefix installs.
+if(APPLE)
+   set(RBUS_ELEMENTS_INSTALL_SYSTEM_FILES_DEFAULT OFF)
+else()
+   set(RBUS_ELEMENTS_INSTALL_SYSTEM_FILES_DEFAULT ON)
+endif()
+option(RBUS_ELEMENTS_INSTALL_SYSTEM_FILES
+   "Install the systemd unit and /var/lib state directory"
+   ${RBUS_ELEMENTS_INSTALL_SYSTEM_FILES_DEFAULT})
+
 if(RBUS_ELEMENTS_ASAN_UBSAN AND RBUS_ELEMENTS_TSAN)
    message(FATAL_ERROR "ASan/UBSan and TSan cannot be enabled in the same build")
 endif()
@@ -69,6 +80,9 @@ if(NOT RBUS_LIBRARY
    endif()
 endif()
 
+# Tests include <rbus/rbus.h>, so they need the parent of the rbus header dir.
+get_filename_component(RBUS_INCLUDE_PARENT_DIR "${RBUS_INCLUDE_DIR}" DIRECTORY)
+
 find_library(CJSON_LIBRARY NAMES cjson)
 find_path(
    CJSON_INCLUDE_DIR
@@ -109,7 +123,7 @@ if(BUILD_TESTING)
       ${RBUS_ELEMENTS_SOURCE_DIR}/provider_state.c
       ${RBUS_ELEMENTS_SOURCE_DIR}/psm_store.c
    )
-   target_include_directories(rbus_elements_tests PRIVATE ${RBUS_ELEMENTS_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests ${RBUS_INCLUDE_DIR} ${RTMSG_INCLUDE_DIR} ${CJSON_INCLUDE_DIR})
+   target_include_directories(rbus_elements_tests PRIVATE ${RBUS_ELEMENTS_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests ${RBUS_INCLUDE_DIR} ${RBUS_INCLUDE_PARENT_DIR} ${RTMSG_INCLUDE_DIR} ${CJSON_INCLUDE_DIR})
    target_link_libraries(rbus_elements_tests PRIVATE ${RBUS_LIBRARY} ${RBUS_CORE_LIBRARY} ${CJSON_LIBRARY} Threads::Threads m)
    target_compile_definitions(rbus_elements_tests PRIVATE RBUS_ELEMENTS_TEST_SEED="${CMAKE_SOURCE_DIR}/psm-seed.json")
    if(RBUS_ELEMENTS_TSAN)
@@ -121,14 +135,14 @@ if(BUILD_TESTING)
       add_executable(rbus_elements_startup_tests
          ${CMAKE_SOURCE_DIR}/tests/test_startup.c
          ${CMAKE_SOURCE_DIR}/tests/test_support.c)
-      target_include_directories(rbus_elements_startup_tests PRIVATE ${RBUS_ELEMENTS_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests ${RBUS_INCLUDE_DIR} ${RTMSG_INCLUDE_DIR})
+      target_include_directories(rbus_elements_startup_tests PRIVATE ${RBUS_ELEMENTS_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/tests ${RBUS_INCLUDE_DIR} ${RBUS_INCLUDE_PARENT_DIR} ${RTMSG_INCLUDE_DIR})
       target_link_libraries(rbus_elements_startup_tests PRIVATE ${RBUS_LIBRARY} ${RBUS_CORE_LIBRARY} Threads::Threads)
       add_test(NAME rbus-elements-method-conflict
          COMMAND rbus_elements_startup_tests $<TARGET_FILE:rbus_elements> ${CMAKE_SOURCE_DIR}/tests/fixtures/valid-startup.json ${CMAKE_SOURCE_DIR}/psm-seed.json)
       add_executable(rbus_elements_integration_tests
          ${CMAKE_SOURCE_DIR}/tests/test_integration.c
          ${CMAKE_SOURCE_DIR}/tests/test_support.c)
-      target_include_directories(rbus_elements_integration_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests ${RBUS_INCLUDE_DIR} ${RTMSG_INCLUDE_DIR})
+      target_include_directories(rbus_elements_integration_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests ${RBUS_INCLUDE_DIR} ${RBUS_INCLUDE_PARENT_DIR} ${RTMSG_INCLUDE_DIR})
       target_link_libraries(rbus_elements_integration_tests PRIVATE ${RBUS_LIBRARY} ${RBUS_CORE_LIBRARY} Threads::Threads)
       add_test(NAME rbus-elements-packaged-rbus
          COMMAND rbus_elements_integration_tests $<TARGET_FILE:rbus_elements> ${CMAKE_SOURCE_DIR}/elements.json ${CMAKE_SOURCE_DIR}/psm-seed.json ${CMAKE_SOURCE_DIR}/tests/fixtures/valid-sparse.json)
@@ -163,9 +177,11 @@ endif()
 install(TARGETS rbus_elements DESTINATION bin COMPONENT runtime)
 install(FILES ${CMAKE_SOURCE_DIR}/elements.json DESTINATION share/rbus_elements COMPONENT runtime)
 install(FILES ${CMAKE_SOURCE_DIR}/psm-seed.json DESTINATION share/rbus_elements COMPONENT runtime)
-install(DIRECTORY DESTINATION /var/lib/rbus-elements COMPONENT runtime
-   DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
-install(FILES ${CMAKE_SOURCE_DIR}/conf/rbus-elements.service DESTINATION /lib/systemd/system/ COMPONENT runtime)
+if(RBUS_ELEMENTS_INSTALL_SYSTEM_FILES)
+   install(DIRECTORY DESTINATION /var/lib/rbus-elements COMPONENT runtime
+      DIRECTORY_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+   install(FILES ${CMAKE_SOURCE_DIR}/conf/rbus-elements.service DESTINATION /lib/systemd/system/ COMPONENT runtime)
+endif()
 
 # CPack configuration for Debian packages
 set(CPACK_GENERATOR "DEB")
